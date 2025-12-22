@@ -156,7 +156,9 @@ class TrendStrategy(bt.Strategy):
             # 没有仓位，根据趋势类型决定是否买入
             if trend_type == 1:  # 单边上涨趋势
                 self.log(f'单边上涨趋势，执行买入 | 当前价格: {self.data_close[0]:.2f}')
-                self.order = self.buy()
+                # 计算合适的买入手数，避免资金不足
+                size = int(self.broker.getvalue() / self.data_close[0] * 0.9)  # 使用90%资金买入
+                self.order = self.buy(size=size if size > 0 else 1)
         else:
             # 持有仓位，根据趋势类型决定是否卖出
             if trend_type == -1:  # 单边下跌趋势
@@ -201,7 +203,8 @@ def main():
     cerebro = bt.Cerebro()
 
     # 设置初始资金
-    cerebro.broker.setcash(10000)
+    initial_cash = 1000  # 可以修改这里的初始资金
+    cerebro.broker.setcash(initial_cash)
 
     # 设置交易手续费
     cerebro.broker.setcommission(commission=0.001)
@@ -244,8 +247,10 @@ def main():
     trade_analysis = strat.analyzers.trades.get_analysis()
 
     # 打印最终资金和分析结果
-    print(f'最终资金: {cerebro.broker.getvalue():.2f}')
-    print(f'总收益率: {(cerebro.broker.getvalue() / 10000 - 1) * 100:.2f}%')
+    final_value = cerebro.broker.getvalue()
+    print(f'最终资金: {final_value:.2f}')
+    # 使用实际初始资金计算收益率
+    print(f'总收益率: {(final_value / initial_cash - 1) * 100:.2f}%')
 
     if isinstance(sharpe_ratio, dict) and 'sharperatio' in sharpe_ratio:
         print(f"夏普比率: {sharpe_ratio.get('sharperatio', 'N/A')}")
