@@ -1,6 +1,7 @@
 import backtrader as bt
 import pandas as pd
 import numpy as np
+import sys
 from datetime import datetime, timedelta
 from data import BinanceDataFetcher
 
@@ -172,36 +173,40 @@ def main():
     """
     示例主函数，展示如何使用TrendDetector类
     """
-    # 设置时间范围（2025年11月1日至2025年11月30日）
-    start_date = datetime(2025, 11, 1)
-    end_date = datetime(2025, 11, 30)
+    # 设置时间范围（2025年1月1日至2025年12月22日）
+    start_date = datetime(2025, 1, 1)
+    end_date = datetime(2025, 12, 22)
 
-    # 使用新的Binance数据获取器获取ETH/USDT 4小时数据
-    # fetcher = BinanceDataFetcher(api_key=API_KEY)
-    # csv_file = fetcher.fetch_klines(
-    #     symbol="ETHUSDT",
-    #     interval="4h",
-    #     start_time=start_date,
-    #     end_time=end_date
-    # )
-    #
-    # if not csv_file:
-    #     print("无法获取数据，退出程序")
-    #     return
+    # 选择要测试的数据源
+    # 可以通过命令行参数选择：python trend.py ETH 或 python trend.py BTC
+    # 或者直接修改下面的变量
+    if len(sys.argv) > 1:
+        asset = sys.argv[1].upper()
+    else:
+        asset = "ETH"  # 默认测试ETH数据
     
-    # 使用本地数据进行测试
-    csv_file = "ethusdt_4h_202511.csv"
+    if asset not in ["ETH", "BTC"]:
+        print("请选择有效的数据源：ETH 或 BTC")
+        return
+    
+    # 设置数据文件路径
+    if asset == "ETH":
+        csv_file = "./data/ETH/ethusdt_1d_20250101_20251222.csv"
+    else:
+        csv_file = "./data/BTC/btcusdt_1d_20250101_20251222.csv"
+    
+    print(f"正在测试 {asset} 的日线数据...")
     
     # 创建Cerebro引擎
     cerebro = bt.Cerebro()
 
     # 设置初始资金
-    cerebro.broker.setcash(10000.0)
+    cerebro.broker.setcash(10000)
 
     # 设置交易手续费
     cerebro.broker.setcommission(commission=0.001)
 
-    # 加载数据
+    # 加载数据 - 日线数据配置
     data = bt.feeds.GenericCSVData(
         dataname=csv_file,
         datetime=0,
@@ -212,8 +217,8 @@ def main():
         volume=5,
         openinterest=-1,  # 我们的CSV文件没有持仓量数据，设置为-1
         dtformat='%Y-%m-%d %H:%M:%S',
-        timeframe=bt.TimeFrame.Minutes,
-        compression=240,  # 4小时数据
+        timeframe=bt.TimeFrame.Days,  # 日线数据
+        compression=1,  # 日线数据的压缩比为1
         headers=True  # 跳过CSV文件的表头行
     )
     cerebro.adddata(data)
