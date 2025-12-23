@@ -5,10 +5,8 @@
 - BTC 4小时数据（2025年1月到现在）
 """
 
-import sys
-import os
 from datetime import datetime
-from data.binance import BinanceDataFetcher
+from data import BinanceDataFetcher
 
 # 设置API密钥
 API_KEY = "34Y19F0ilIFbUlb0z3JbBZG99B7Qx42CKVMs35G69P6qMhngGgtzu1VadUmue4Z6"
@@ -59,11 +57,11 @@ def main():
         interval="1h",
         start_time=start_time,
         end_time=end_time,
-        save_dir="./data/ETH"
+        save_dir="ETH"
     )
 
     # 下载BTC日线和4小时数据到指定目录
-    btc_save_dir = "./data/BTC"
+    btc_save_dir = "BTC"
     
     # 下载BTC日线数据
     # download_data(
