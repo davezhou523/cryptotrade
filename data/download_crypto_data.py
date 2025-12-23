@@ -54,7 +54,7 @@ def main():
     download_data(
         fetcher=fetcher,
         symbol="ETHUSDT",
-        interval="1h",
+        interval="15m",
         start_time=start_time,
         end_time=end_time,
         save_dir="ETH"
@@ -86,7 +86,7 @@ def main():
     download_data(
         fetcher=fetcher,
         symbol="BTCUSDT",
-        interval="1h",
+        interval="15m",
         start_time=start_time,
         end_time=end_time,
         save_dir=btc_save_dir
