@@ -48,25 +48,38 @@ class TrendDetector(bt.Indicator):
 
     def next(self):
         """
-        计算当前趋势类型
-        - 震荡趋势：ADX < adx_threshold
-        - 单边上涨趋势：+DI > -DI 且 ADX >= adx_threshold
-        - 单边下跌趋势：-DI > +DI 且 ADX >= adx_threshold
+        计算当前趋势类型 - 整合DMI和BOLL指标
+        - 震荡趋势：ADX < adx_threshold 且 价格在BOLL通道内
+        - 单边上涨趋势：+DI > -DI 且 ADX >= adx_threshold 且 (价格突破BOLL上轨或在中上轨之间)
+        - 单边下跌趋势：-DI > +DI 且 ADX >= adx_threshold 且 (价格突破BOLL下轨或在中下轨之间)
         """
         adx_value = self.dmi.adx[0]
         plus_di_value = self.dmi.plusDI[0]
         minus_di_value = self.dmi.minusDI[0]
-
-        # 判断趋势类型
-        if adx_value < self.params.adx_threshold:
-            # 震荡趋势
+        
+        # BOLL指标数据
+        close = self.data.close[0]
+        boll_top = self.boll.lines.top[0]
+        boll_mid = self.boll.lines.mid[0]
+        boll_bot = self.boll.lines.bot[0]
+        
+        # 价格在BOLL通道内的判断
+        in_boll_channel = (boll_bot <= close <= boll_top)
+        # 价格接近或突破BOLL上轨
+        near_boll_top = (close >= boll_mid)
+        # 价格接近或突破BOLL下轨
+        near_boll_bot = (close <= boll_mid)
+        
+        # 综合DMI和BOLL的趋势判断
+        if adx_value < self.params.adx_threshold and in_boll_channel:
+            # ADX低且价格在通道内，确认震荡趋势
             self.lines.trend_type[0] = self.params.sideways_trend
-        elif plus_di_value > minus_di_value and adx_value >= self.params.adx_threshold:
-            # 单边上涨趋势
+        elif (plus_di_value > minus_di_value and adx_value >= self.params.adx_threshold and near_boll_top):
+            # DMI显示上涨且价格在通道上半部分，确认上涨趋势
             self.lines.trend_type[0] = self.params.bullish_trend
-        elif minus_di_value > plus_di_value and adx_value >= self.params.adx_threshold:
-            # 单边下跌趋势
+        elif (minus_di_value > plus_di_value and adx_value >= self.params.adx_threshold and near_boll_bot):
+            # DMI显示下跌且价格在通道下半部分，确认下跌趋势
             self.lines.trend_type[0] = self.params.bearish_trend
         else:
-            # 默认情况：震荡趋势
+            # 指标冲突时，默认保持震荡趋势
             self.lines.trend_type[0] = self.params.sideways_trend
