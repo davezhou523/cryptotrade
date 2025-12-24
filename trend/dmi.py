@@ -1,12 +1,12 @@
 import backtrader as bt
-
+from config import STRATEGY_PARAMS
 class DMI(bt.Indicator):
     """
     自定义DMI指标类
     Directional Movement Index (DMI) 用于判断趋势强度和方向
     """
     lines = ('plus_di', 'minus_di', 'adx')
-    params = (('period', 14),)
+    params = (('period', STRATEGY_PARAMS['dmi_period']),)
 
     def __init__(self):
         # 调用父类的__init__方法

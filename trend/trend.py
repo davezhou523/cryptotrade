@@ -1,5 +1,5 @@
 import backtrader as bt
-
+from config import STRATEGY_PARAMS
 class TrendDetector(bt.Indicator):
     """
     趋势判断类，使用DMI+BOLL技术指标判断三种趋势类型
@@ -9,18 +9,14 @@ class TrendDetector(bt.Indicator):
     """
     lines = ('trend_type',)
     params = (
-        # BOLL参数
-        ('boll_period', 20),
-        ('boll_dev', 2),
-
-        # DMI参数
-        ('dmi_period', 7),
-        ('adx_threshold', 15),  # 降低ADX阈值
-
+        ('boll_period', STRATEGY_PARAMS['boll_period']),
+        ('boll_dev', STRATEGY_PARAMS['boll_dev']),
+        ('dmi_period', STRATEGY_PARAMS['dmi_period']),
+        ('adx_threshold', STRATEGY_PARAMS['adx_threshold']),
         # 趋势类型定义
-        ('sideways_trend', 0),
-        ('bullish_trend', 1),
-        ('bearish_trend', -1),
+        ('sideways_trend', STRATEGY_PARAMS['sideways_trend']),
+        ('bullish_trend', STRATEGY_PARAMS['bullish_trend']),
+        ('bearish_trend', STRATEGY_PARAMS['bearish_trend']),
     )
 
     def __init__(self):
@@ -38,6 +34,8 @@ class TrendDetector(bt.Indicator):
         
         # 检查DMI指标的实际参数
         print(f"DMI指标实际周期: {self.dmi.params.period}")
+        print(f"boll_period指标实际周期: {self.params.boll_period}")
+
 
         # 使用Backtrader内置的BOLL指标
         self.boll = bt.indicators.BBands(
@@ -59,6 +57,7 @@ class TrendDetector(bt.Indicator):
         
         # BOLL指标数据
         close = self.data.close[0]
+        # print(f"BOLL指标数据close: {close}")
         boll_top = self.boll.lines.top[0]
         boll_mid = self.boll.lines.mid[0]
         boll_bot = self.boll.lines.bot[0]

@@ -1,9 +1,17 @@
 # 创建config.py文件保存所有参数
 STRATEGY_PARAMS = {
+    # 趋势类型定义
+    # 震荡趋势
+    'sideways_trend': 0,
+    # 单边上涨趋势
+    'bullish_trend': 1,
+    # 单边下跌趋势
+    'bearish_trend': -1,
+
     # 趋势检测参数
     'boll_period': 20,
     'boll_dev': 2,
-    'dmi_period': 7,
+    'dmi_period': 14,
     'adx_threshold': 15,
     
     # Stoch RSI参数

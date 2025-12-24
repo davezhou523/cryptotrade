@@ -67,12 +67,7 @@ class StochRSIStrategy(bt.Strategy):
         self.data_daily_low = self.datas[1].low
 
         # 初始化日线级别的趋势检测器
-        self.trend_detector_daily = TrendDetector(
-            boll_period=self.params.boll_period,
-            boll_dev=self.params.boll_dev,
-            dmi_period=self.params.dmi_period,
-            adx_threshold=self.params.adx_threshold
-        )
+        self.trend_detector_daily = TrendDetector(self.datas[1])
         
         # 在1小时数据上初始化买卖点指标
         self.stoch_rsi_1h = StochasticRSI(
