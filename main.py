@@ -19,37 +19,37 @@ class StochRSIStrategy(bt.Strategy):
     """
     params = (
         # 趋势检测参数
-        ('boll_period', 20),
-        ('boll_dev', 2),
-        ('dmi_period', 14),
-        ('adx_threshold', 15),
+        ('boll_period', STRATEGY_PARAMS['boll_period']),
+        ('boll_dev', STRATEGY_PARAMS['boll_dev']),
+        ('dmi_period', STRATEGY_PARAMS['dmi_period']),
+        ('adx_threshold', STRATEGY_PARAMS['adx_threshold']),
 
         # Stoch RSI参数 - 优化参数以提高胜率
-        ('rsi_period', 14),
-        ('stoch_period', 14),  # 增加周期，减少敏感度
-        ('stoch_d_period', 4),  # 缩短D线周期
-        ('oversold', 25),  # 提高超卖阈值，减少买入信号
-        ('overbought', 75),  # 降低超买阈值，提前卖出
+        ('rsi_period', STRATEGY_PARAMS['rsi_period']),
+        ('stoch_period', STRATEGY_PARAMS['stoch_period']),  # 增加周期，减少敏感度
+        ('stoch_d_period', STRATEGY_PARAMS['stoch_d_period']),  # 缩短D线周期
+        ('oversold', STRATEGY_PARAMS['oversold']),  # 提高超卖阈值，减少买入信号
+        ('overbought', STRATEGY_PARAMS['overbought']),  # 降低超买阈值，提前卖出
 
         # ATR参数
-        ('atr_period', 14),
+        ('atr_period', STRATEGY_PARAMS['atr_period']),
 
         # 优化建议
-        ('stop_loss_multiplier', 2.0),  # 适当扩大止损范围，减少被震荡止损的概率
-        ('take_profit_multiplier', 3.0),  # 适当降低止盈目标，提高盈利交易的胜率
-        
-        ('trailing_stop_multiplier', 2.0),
+        ('stop_loss_multiplier', STRATEGY_PARAMS['stop_loss_multiplier']),  # 适当扩大止损范围，减少被震荡止损的概率
+        ('take_profit_multiplier', STRATEGY_PARAMS['take_profit_multiplier']),  # 适当降低止盈目标，提高盈利交易的胜率
+
+        ('trailing_stop_multiplier', STRATEGY_PARAMS['trailing_stop_multiplier']),
 
         # 移动平均线参数
-        ('ma_period', 60),  # 增加MA周期，使趋势判断更稳定
+        ('ma_period', STRATEGY_PARAMS['ma_period']),  # 增加MA周期，使趋势判断更稳定
 
         # 风险控制参数 - 优化风险控制
-        ('max_loss_per_trade', 0.01),  # 适当提高单笔最大亏损比例，增加盈利潜力
+        ('max_loss_per_trade', STRATEGY_PARAMS['max_loss_per_trade']),  # 适当提高单笔最大亏损比例，增加盈利潜力
 
-        ('min_hold_periods', 3),  # 增加最小持仓时间到3个周期
-        ('max_trades_per_day', 1),  # 减少每日最大交易次数到1次
+        ('min_hold_periods', STRATEGY_PARAMS['min_hold_periods']),  # 增加最小持仓时间到3个周期
+        ('max_trades_per_day', STRATEGY_PARAMS['max_trades_per_day']),  # 减少每日最大交易次数到1次
 
-        ('printlog', True),
+        ('printlog', STRATEGY_PARAMS['printlog']),
     )
 
     def __init__(self):
@@ -85,8 +85,7 @@ class StochRSIStrategy(bt.Strategy):
             period=self.params.atr_period
         )
         
-        self.ma_1h = bt.indicators.SMA(self.data_1h_close, period=self.params.ma_period)
-
+        self.ma_1h = bt.indicators.EMA(self.data_1h_close, period=self.params.ma_period)
         self.boll_1h = bt.indicators.BBands(
             period=self.params.boll_period,
             devfactor=self.params.boll_dev
@@ -95,7 +94,7 @@ class StochRSIStrategy(bt.Strategy):
         self.rsi_1h = bt.indicators.RSI(period=self.params.rsi_period)
         
         # 新增：5周期成交量移动平均线
-        self.volume_ma_5 = bt.indicators.SMA(self.data_1h_volume, period=5)
+        self.volume_ma_5 = bt.indicators.EMA(self.data_1h_volume, period=5)
 
         # 跟踪订单状态
         self.order = None
@@ -136,7 +135,7 @@ class StochRSIStrategy(bt.Strategy):
                 self.log(f'买入执行 | 价格: {order.executed.price:.2f} | 数量: {order.executed.size:.4f}')
                 # 初始化持仓变量
                 self.entry_price = order.executed.price
-                self.entry_bar = len(self) - 1
+                self.entry_bar = len(self.datas[0]) - 1
 
                 # 设置止损止盈
                 atr_value = self.atr_1h[0]
@@ -228,7 +227,7 @@ class StochRSIStrategy(bt.Strategy):
                 self.entry_bar = len(self) - 1  # 假设上一个bar开的仓
             
             # 检查是否达到最小持仓时间
-            if len(self) - self.entry_bar < self.params.min_hold_periods:
+            if len(self.datas[0]) - self.entry_bar < self.params.min_hold_periods:
                 self.log(f'未达到最小持仓时间 {self.params.min_hold_periods}，继续持有')
                 return
             
@@ -424,7 +423,7 @@ def main():
 
     # 添加策略
     # cerebro.addstrategy(StochRSIStrategy, printlog=True)
-    cerebro.addstrategy(StochRSIStrategy, **STRATEGY_PARAMS)
+    cerebro.addstrategy(StochRSIStrategy)
 
     # 添加分析器
     cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe')

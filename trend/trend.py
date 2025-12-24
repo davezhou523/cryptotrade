@@ -1,5 +1,5 @@
 import backtrader as bt
-from .dmi import DMI
+
 class TrendDetector(bt.Indicator):
     """
     趋势判断类，使用DMI+BOLL技术指标判断三种趋势类型
@@ -14,7 +14,7 @@ class TrendDetector(bt.Indicator):
         ('boll_dev', 2),
 
         # DMI参数
-        ('dmi_period', 14),
+        ('dmi_period', 7),
         ('adx_threshold', 15),  # 降低ADX阈值
 
         # 趋势类型定义
@@ -24,9 +24,24 @@ class TrendDetector(bt.Indicator):
     )
 
     def __init__(self):
-        # 初始化指标
-        self.dmi = DMI(period=self.params.dmi_period)
+        # 调用父类的__init__方法
+        super().__init__()
+        
+        # 打印参数值，确认是否正确获取
+        print(f"TrendDetector参数dmi_period: {self.params.dmi_period}")
+        
+        # 使用Backtrader内置的DMI指标，只使用period参数
+        self.dmi = bt.indicators.DMI(
+            self.data, 
+            period=self.params.dmi_period
+        )
+        
+        # 检查DMI指标的实际参数
+        print(f"DMI指标实际周期: {self.dmi.params.period}")
+
+        # 使用Backtrader内置的BOLL指标
         self.boll = bt.indicators.BBands(
+            self.data,
             period=self.params.boll_period,
             devfactor=self.params.boll_dev
         )
@@ -39,8 +54,8 @@ class TrendDetector(bt.Indicator):
         - 单边下跌趋势：-DI > +DI 且 ADX >= adx_threshold
         """
         adx_value = self.dmi.adx[0]
-        plus_di_value = self.dmi.plus_di[0]
-        minus_di_value = self.dmi.minus_di[0]
+        plus_di_value = self.dmi.plusDI[0]
+        minus_di_value = self.dmi.minusDI[0]
 
         # 判断趋势类型
         if adx_value < self.params.adx_threshold:
