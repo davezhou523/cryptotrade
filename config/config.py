@@ -12,7 +12,17 @@ STRATEGY_PARAMS = {
     'boll_period': 20,
     'boll_dev': 2,
     'dmi_period': 14,
-    'adx_threshold': 15,
+    'adx_threshold': 20,
+    
+    # BOLL通道优化参数
+    'boll_channel_width_threshold': 2,  # 通道宽度阈值（百分比），小于此值视为窄幅震荡
+    'boll_top_percentage': 0.7,  # 上涨趋势的BOLL上轨百分比要求（0.7表示价格需要在上轨70%范围内）
+    'boll_bottom_percentage': 0.3,  # 下跌趋势的BOLL下轨百分比要求（0.3表示价格需要在下轨30%范围内）
+    
+    # 新增：趋势确认参数
+    'boll_mid_rising_periods': 3,  # BOLL中轨连续上升的期数要求
+    'volume_ratio_threshold': 1.2,  # 成交量放大比例阈值，大于此值视为有效放量
+    'atr_volatility_multiplier': 1.5,  # ATR波动率乘数，用于判断趋势强度
     
     # Stoch RSI参数
     'rsi_period': 14,
@@ -20,7 +30,9 @@ STRATEGY_PARAMS = {
     'stoch_d_period': 4,
     'oversold': 25,
     'overbought': 75,
-    
+    'smooth_period': 5,
+    'rsi_smooth_period': 7,
+
     # ATR参数
     'atr_period': 14,
     

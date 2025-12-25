@@ -2,6 +2,7 @@
 import backtrader as bt
 
 # 移除 sys, datetime, csv 这些不需要的导入
+from config import STRATEGY_PARAMS
 class StochasticRSI(bt.Indicator):
     """
     自定义Stochastic RSI指标
@@ -9,12 +10,12 @@ class StochasticRSI(bt.Indicator):
     """
     lines = ('percK', 'percD')
     params = (
-        ('period', 14),  # RSI周期
-        ('stoch_period', 14),  # Stochastic K周期
-        ('dperiod', 3),  # Stochastic D周期
+        ('period', STRATEGY_PARAMS['rsi_period']),  # RSI周期
+        ('stoch_period', STRATEGY_PARAMS['stoch_period']),  # Stochastic K周期
+        ('dperiod', STRATEGY_PARAMS['stoch_d_period']),  # Stochastic D周期
         ('movav', bt.indicators.EMA),  # 移动平均线类型
-        ('smooth_period', 7),  # 增加平滑周期到5
-        ('rsi_smooth_period', 7),  # RSI平滑周期
+        ('smooth_period', STRATEGY_PARAMS['smooth_period']),  # 增加平滑周期到5
+        ('rsi_smooth_period', STRATEGY_PARAMS['rsi_smooth_period']),  # RSI平滑周期
     )
 
     def __init__(self):
