@@ -1,5 +1,6 @@
 import backtrader as bt
 from config import STRATEGY_PARAMS
+from datetime import datetime
 
 class TrendDetector(bt.Indicator):
     """
@@ -36,11 +37,11 @@ class TrendDetector(bt.Indicator):
         print(f"TrendDetector参数boll_dev: {self.params.boll_dev}")
         print(f"TrendDetector参数dmi_period: {self.params.dmi_period}")
         print(f"TrendDetector参数adx_threshold: {self.params.adx_threshold}")
-        # 判断是否为日线级别数据
-        is_daily = (self.data._timeframe == bt.TimeFrame.Days) and (self.data._compression == 1)
-        print(f"is_daily: {is_daily} timeframe: {self.data._timeframe} compression: {self.data._compression}")
-        print(
-            f"当前数据周期: {'日线级别'  if is_daily else f'{self.data._timeframe}周期，压缩率{self.data._compression}'}")
+        
+        # 判断是否为日线级别数据，并存储为实例变量
+        self.is_daily = (self.data._timeframe == bt.TimeFrame.Days) and (self.data._compression == 1)
+        print(f"is_daily: {self.is_daily} timeframe: {self.data._timeframe} compression: {self.data._compression}")
+        print(f"当前数据周期: {'日线级别'  if self.is_daily else f'{self.data._timeframe}周期，压缩率{self.data._compression}'}")
 
         # 使用Backtrader内置的DMI指标，只使用period参数
         self.dmi = bt.indicators.DMI(
@@ -172,3 +173,58 @@ class TrendDetector(bt.Indicator):
         else:
             # 指标冲突时，默认保持震荡趋势
             self.lines.trend_type[0] = self.params.sideways_trend
+        
+        # 日线级别数据输出详细日志
+        if self.is_daily:
+            # 获取当前日期
+            current_date = self.data.datetime.datetime(0).strftime('%Y-%m-%d')
+            
+            # 趋势类型名称映射
+            trend_type_name = {
+                self.params.sideways_trend: "震荡趋势",
+                self.params.bullish_trend: "上涨趋势",
+                self.params.bearish_trend: "下跌趋势"
+            }.get(self.lines.trend_type[0], "未知趋势")
+            
+            # 格式化数值，保留4位小数
+            def format_num(num):
+                return round(num, 4)
+            
+            # 输出详细日志
+            print(f"\n===== 日线趋势分析 [{current_date}] =====")
+            print(f"收盘价: {format_num(close)}")
+            print(f"\nDMI指标:")
+            print(f"  ADX: {format_num(adx_value)} (阈值: {self.params.adx_threshold})")
+            print(f"  +DI: {format_num(plus_di_value)}")
+            print(f"  -DI: {format_num(minus_di_value)}")
+            print(f"  上涨动能强于下跌: {plus_di_value > minus_di_value}")
+            
+            print(f"\nBOLL指标:")
+            print(f"  上轨: {format_num(boll_top)}")
+            print(f"  中轨: {format_num(boll_mid)}")
+            print(f"  下轨: {format_num(boll_bot)}")
+            print(f"  通道宽度: {format_num(boll_width)}% (阈值: {self.params.boll_channel_width_threshold}%)")
+            print(f"  价格在通道内: {in_boll_channel}")
+            print(f"  通道狭窄: {is_narrow_channel}")
+            print(f"  中轨连续上升{self.params.boll_mid_rising_periods}期: {is_boll_mid_rising}")
+            print(f"  中轨连续下降{self.params.boll_mid_rising_periods}期: {is_boll_mid_falling}")
+            print(f"  价格在中轨上方: {price_above_mid}")
+            print(f"  价格在中轨下方: {price_below_mid}")
+            
+            print(f"\n成交量指标:")
+            print(f"  当前成交量: {format_num(self.data.volume[0])}")
+            print(f"  5期平均成交量: {format_num(avg_volume)}")
+            print(f"  成交量比值: {format_num(volume_ratio)} (阈值: {self.params.volume_ratio_threshold})")
+            print(f"  成交量确认: {is_volume_confirm}")
+            
+            print(f"\nATR指标:")
+            print(f"  当前ATR: {format_num(self.atr[0])}")
+            print(f"  20期平均ATR: {format_num(avg_atr)}")
+            print(f"  ATR比值: {format_num(self.atr[0]/avg_atr) if avg_atr > 0 else 0.0} (阈值: {self.params.atr_volatility_multiplier})")
+            print(f"  趋势强度足够: {is_trend_strong}")
+            
+            print(f"\n趋势判断结果:")
+            print(f"  上涨条件满足: {is_bullish}")
+            print(f"  下跌条件满足: {is_bearish}")
+            print(f"  最终趋势类型: {trend_type_name} ({self.lines.trend_type[0]})")
+            print("="*50)
