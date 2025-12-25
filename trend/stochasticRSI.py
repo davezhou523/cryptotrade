@@ -1,7 +1,5 @@
 # 只保留需要的导入
 import backtrader as bt
-
-# 移除 sys, datetime, csv 这些不需要的导入
 from config import STRATEGY_PARAMS
 class StochasticRSI(bt.Indicator):
     """
