@@ -179,7 +179,40 @@ class TradingStrategy(bt.Strategy):
         if not trade.isclosed:
             return
 
-        self.log(f'交易完成 | 利润: {trade.pnl:.2f} | 净利润: {trade.pnlcomm:.2f}')
+        # 获取交易详情（使用Trade对象的正确属性）
+        trade_size = abs(trade.size)  # 获取交易数量（取绝对值，因为卖出时size为负数）
+        gross_profit = trade.pnl
+        net_profit = trade.pnlcomm
+        commission = trade.commission
+        
+        # 尝试获取平均买入和卖出价格
+        try:
+            # 通过history获取详细交易记录
+            entry_price = trade.history[0].event.price  # 买入价格
+            exit_price = trade.history[-1].event.price  # 卖出价格
+        except (IndexError, AttributeError):
+            # 如果无法获取详细价格，使用平均价格
+            entry_price = trade.price
+            exit_price = trade.price
+        
+        # 计算收益率
+        if entry_price > 0 and trade_size > 0:
+            profit_percentage = (net_profit / (entry_price * trade_size)) * 100
+        else:
+            profit_percentage = 0
+
+        # 确定交易结果类型
+        if net_profit > 0:
+            result_type = "盈利"
+            result_color = "✅"
+        else:
+            result_type = "亏损"
+            result_color = "❌"
+
+        # 输出详细交易日志
+        self.log(f'{result_color} 交易完成 | {result_type} | 数量: {trade_size:.4f} | 买入价: {entry_price:.2f} | 卖出价: {exit_price:.2f}')
+        self.log(f'        毛利润: {gross_profit:.2f} | 手续费: {commission:.2f} | 净利润: {net_profit:.2f}')
+        self.log(f'        收益率: {profit_percentage:.2f}%')
 
     def validate_buy_signal(self, trend_type, stoch_rsi_k, stoch_rsi_d, stoch_rsi_k_prev, stoch_rsi_d_prev):
         """
@@ -452,8 +485,12 @@ class TradingStrategy(bt.Strategy):
                 cash = self.broker.getcash()
                 value = self.broker.getvalue()
 
+                # 确保使用正数计算风险金额
+                safe_value = max(value, 0)
+                safe_cash = max(cash, 0)
+
                 # 计算基于风险的头寸大小
-                risk_amount = value * self.params.max_loss_per_trade
+                risk_amount = safe_value * self.params.max_loss_per_trade
                 if atr_value > 0:
                     # 根据市场波动率动态调整仓位
                     if atr_value > (self.atr_1h[-1] * 1.5) and len(self.atr_1h) > 1:
@@ -462,10 +499,14 @@ class TradingStrategy(bt.Strategy):
                     else:
                         position_size_risk = risk_amount / (self.params.stop_loss_multiplier * atr_value)
                 else:
-                    position_size_risk = cash / self.data_1h_close[0]
+                    position_size_risk = safe_cash / self.data_1h_close[0]
 
                 # 计算基于可用资金的头寸大小（使用更保守的比例）
-                cash_size = (cash * 0.7) / self.data_1h_close[0]  # 最多使用70%的可用资金
+                cash_size = (safe_cash * 0.7) / self.data_1h_close[0]  # 最多使用70%的可用资金
+
+                # 确保头寸大小为正数
+                position_size_risk = max(position_size_risk, 0)
+                cash_size = max(cash_size, 0)
 
                 # 取较小的头寸大小
                 position_size = min(position_size_risk, cash_size)

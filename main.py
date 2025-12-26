@@ -97,7 +97,9 @@ def main():
     cerebro.addstrategy(TradingStrategy)
 
     # 添加分析器
-    cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe')
+    # 修改夏普比率分析器配置，添加timeframe参数
+    cerebro.addanalyzer(bt.analyzers.SharpeRatio, timeframe=bt.TimeFrame.Minutes, compression=60, _name='sharpe')
+
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trades')
 
@@ -120,7 +122,12 @@ def main():
     print(f'总收益率: {(final_value / initial_cash - 1) * 100:.2f}%')
 
     if isinstance(sharpe_ratio, dict) and 'sharperatio' in sharpe_ratio:
-        print(f"夏普比率: {sharpe_ratio.get('sharperatio', 'N/A')}")
+        sr_value = sharpe_ratio.get('sharperatio', 'N/A')
+        # 检查是否为有效数值，保留2位小数
+        if sr_value != 'N/A' and sr_value is not None:
+            print(f"夏普比率: {sr_value:.2f}")
+        else:
+            print("夏普比率: N/A")
     else:
         print("夏普比率: N/A")
 
