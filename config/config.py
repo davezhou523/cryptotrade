@@ -37,8 +37,8 @@ STRATEGY_PARAMS = {
     'atr_period': 14,
     
     # 优化建议
-    'stop_loss_multiplier': 2.0,
-    'take_profit_multiplier': 3.0,
+    'stop_loss_multiplier': 2.5,
+    'take_profit_multiplier': 4.0,
     'trailing_stop_multiplier': 2.0,
     
     # 移动平均线参数

@@ -1,7 +1,6 @@
 import backtrader as bt
 import sys
 from datetime import datetime
-import csv
 from config import STRATEGY_PARAMS
 
 from trend.stochasticRSI import StochasticRSI
@@ -11,21 +10,6 @@ from trend.trend import TrendDetector
 # Binance API配置
 API_KEY = "34Y19F0ilIFbUlb0z3JbBZG99B7Qx42CKVMs35G69P6qMhngGgtzu1VadUmue4Z6"
 API_SECRET = "0dGiAwz9qRCmarEFA4HehoYwdJOA5O4rdSOop9vD2hmV8zrrFPuSu31VdjbHFzZp"
-
-# 在main.py中创建数据加载函数
-def load_data(asset, timeframe, compression, dataname_format):
-    """加载指定时间周期的历史数据"""
-    print(f"加载{timeframe}级别数据...")
-    return bt.feeds.GenericCSVData(
-        dataname=datname_format.format(asset=asset, 
-                                      symbol='eth' if asset == 'ETH' else 'btc'),
-        datetime=0, open=1, high=2, low=3, close=4, volume=5, openinterest=-1,
-        dtformat='%Y-%m-%d %H:%M:%S',
-        timeframe=timeframe, compression=compression,
-        headers=True
-    )
-
-
 
 def main():
     """
@@ -49,18 +33,37 @@ def main():
     
     # 创建Cerebro引擎
     cerebro = bt.Cerebro()
-
+    time_period = 240
     # 设置初始资金
     initial_cash = 1000  # 可以修改这里的初始资金
     cerebro.broker.setcash(initial_cash)
 
     # 设置交易手续费和杠杆（杠杆为1，即100%保证金）
     cerebro.broker.setcommission(commission=0.001, margin=1.0)
-
+    # 或设置百分比滑点（基于价格的百分比）
+    cerebro.broker.set_slippage_perc(0.001)  # 1‰的滑点
     # 加载1小时级别数据（用于判断买卖点）
-    print("加载1小时级别数据...")
-    data_1h = bt.feeds.GenericCSVData(
-        dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'btc'}usdt_1h_20250101_20251222.csv",
+    # print("加载1小时级别数据...")
+    # data_1h = bt.feeds.GenericCSVData(
+    #     dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'btc'}usdt_1h_20250101_20251222.csv",
+    #     datetime=0,
+    #     open=1,
+    #     high=2,
+    #     low=3,
+    #     close=4,
+    #     volume=5,
+    #     openinterest=-1,
+    #     dtformat='%Y-%m-%d %H:%M:%S',
+    #     timeframe=bt.TimeFrame.Minutes,
+    #     compression=60,
+    #     headers=True
+    # )
+    # cerebro.adddata(data_1h)  # 1小时数据作为主要数据（datas[0]）
+
+    # 加载4小时级别数据（用于判断买卖点）
+    print("加载4小时级别数据...")
+    data_4h = bt.feeds.GenericCSVData(
+        dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'btc'}usdt_4h_20250101_20251222.csv",
         datetime=0,
         open=1,
         high=2,
@@ -70,10 +73,10 @@ def main():
         openinterest=-1,
         dtformat='%Y-%m-%d %H:%M:%S',
         timeframe=bt.TimeFrame.Minutes,
-        compression=60,
+        compression=time_period,  # 4小时 = 240分钟
         headers=True
     )
-    cerebro.adddata(data_1h)  # 1小时数据作为主要数据（datas[0]）
+    cerebro.adddata(data_4h)  # 4小时数据作为主要数据（datas[0]）
 
     # 加载日线级别数据（用于判断趋势）
     print("加载日线级别数据...")
@@ -94,11 +97,23 @@ def main():
     cerebro.adddata(data_daily)  # 日线数据作为次要数据（datas[1]）
 
     # 添加策略
-    cerebro.addstrategy(TradingStrategy)
+    # cerebro.addstrategy(TradingStrategy, time_period='4h')  # 例如使用4小时周期
+    # 优化后的参数测试（减少到约400种组合）
+    # 第一阶段：只测试核心参数
+    cerebro.optstrategy(
+        TradingStrategy,
+        time_period=['4h'],
+        rsi_period=range(12, 20),  # 重点测试RSI周期
+        stoch_period=14,  # 固定为常用值
+        fast_ma_period=12,  # 固定
+        slow_ma_period=50,  # 固定
+        stop_loss_multiplier=3,  # 固定
+        take_profit_multiplier=4  # 固定
+    )
 
     # 添加分析器
     # 修改夏普比率分析器配置，添加timeframe参数
-    cerebro.addanalyzer(bt.analyzers.SharpeRatio, timeframe=bt.TimeFrame.Minutes, compression=60, _name='sharpe')
+    cerebro.addanalyzer(bt.analyzers.SharpeRatio, timeframe=bt.TimeFrame.Minutes, compression=time_period, _name='sharpe')
 
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trades')
@@ -106,69 +121,78 @@ def main():
     # 打印初始资金
     print(f'初始资金: {cerebro.broker.getvalue():.2f}')
 
-    # 运行回测
-    results = cerebro.run()
+    # 运行回测 - 禁用多进程，避免序列化错误
+    results = cerebro.run(maxcpus=1)  # 使用单进程运行参数优化
 
-    # 获取分析结果
-    strat = results[0]
-    sharpe_ratio = strat.analyzers.sharpe.get_analysis()
-    drawdown = strat.analyzers.drawdown.get_analysis()
-    trade_analysis = strat.analyzers.trades.get_analysis()
-
-    # 打印最终资金和分析结果
-    final_value = cerebro.broker.getvalue()
-    print(f'最终资金: {final_value:.2f}')
-    # 使用实际初始资金计算收益率
-    print(f'总收益率: {(final_value / initial_cash - 1) * 100:.2f}%')
-
-    if isinstance(sharpe_ratio, dict) and 'sharperatio' in sharpe_ratio:
-        sr_value = sharpe_ratio.get('sharperatio', 'N/A')
-        # 检查是否为有效数值，保留2位小数
-        if sr_value != 'N/A' and sr_value is not None:
-            print(f"夏普比率: {sr_value:.2f}")
-        else:
-            print("夏普比率: N/A")
-    else:
-        print("夏普比率: N/A")
-
-    if hasattr(drawdown, 'max') and hasattr(drawdown.max, 'drawdown'):
-        print(f"最大回撤: {drawdown.max.drawdown:.2f}%")
-    else:
-        print("最大回撤: 0.00%")
-
-    # 安全地检查交易分析数据
-    try:
-        if hasattr(trade_analysis, 'total') and hasattr(trade_analysis.total, 'total'):
-            total_trades = trade_analysis.total.total
-            if total_trades > 0:
-                # 尝试获取盈利和亏损交易数
-                won_trades = 0
-                lost_trades = 0
-
-                if hasattr(trade_analysis, 'won') and hasattr(trade_analysis.won, 'total'):
-                    won_trades = trade_analysis.won.total
-
-                if hasattr(trade_analysis, 'lost') and hasattr(trade_analysis.lost, 'total'):
-                    lost_trades = trade_analysis.lost.total
-
-                win_rate = won_trades / total_trades * 100 if total_trades > 0 else 0
-                print(f"交易次数: {total_trades}")
-                print(f"盈利次数: {won_trades}")
-                print(f"亏损次数: {lost_trades}")
-                print(f"胜率: {win_rate:.2f}%")
+    # 获取分析结果 - 处理参数优化的结果格式（列表的列表）
+    print("\n参数优化结果：")
+    print("=" * 60)
+    
+    best_sharpe = -float('inf')
+    best_params = None
+    best_result = None
+    
+    # 遍历所有参数组合的结果
+    for i, result_list in enumerate(results):
+        # 每个参数组合对应一个结果列表
+        strat = result_list[0]  # 每个参数组合只有一个策略实例
+        
+        # 获取当前参数组合
+        params = strat.params
+        
+        try:
+            # 获取分析结果
+            sharpe_ratio = strat.analyzers.sharpe.get_analysis()
+            drawdown = strat.analyzers.drawdown.get_analysis()
+            trade_analysis = strat.analyzers.trades.get_analysis()
+            
+            # 获取最终资金
+            final_value = cerebro.broker.getvalue()
+            total_return = (final_value / initial_cash - 1) * 100
+            
+            # 提取夏普比率值
+            if isinstance(sharpe_ratio, dict) and 'sharperatio' in sharpe_ratio:
+                sr_value = sharpe_ratio.get('sharperatio', 0)
             else:
-                print("交易次数: 0")
-                print("没有执行任何交易")
-        else:
-            print("交易次数: 0")
-            print("没有执行任何交易")
-    except Exception as e:
-        print(f"交易分析出错: {str(e)}")
-        print("没有执行任何交易")
+                sr_value = 0
+            
+            # 打印当前参数组合的结果
+            print(f"\n参数组合 {i+1}:")
+            print(f"  RSI周期: {params.rsi_period}")
+            print(f"  最终资金: {final_value:.2f}")
+            print(f"  总收益率: {total_return:.2f}%")
+            
+            if sr_value != 0:
+                print(f"  夏普比率: {sr_value:.2f}")
+            else:
+                print(f"  夏普比率: N/A")
+            
+            if hasattr(drawdown, 'max') and hasattr(drawdown.max, 'drawdown'):
+                print(f"  最大回撤: {drawdown.max.drawdown:.2f}%")
+            else:
+                print(f"  最大回撤: 0.00%")
+            
+            # 更新最佳参数
+            if sr_value > best_sharpe:
+                best_sharpe = sr_value
+                best_params = params
+                best_result = result_list
+        
+        except Exception as e:
+            print(f"\n参数组合 {i+1} 分析失败: {str(e)}")
+    
+    # 打印最佳参数组合
+    if best_params is not None:
+        print("\n" + "=" * 60)
+        print("最佳参数组合:")
+        print(f"  RSI周期: {best_params.rsi_period}")
+        print(f"  夏普比率: {best_sharpe:.2f}")
+        print("=" * 60)
 
     # 绘制图表
     # cerebro.plot(style='candlestick')
 
 
 if __name__ == '__main__':
+    # 在main.py中添加滑点设置
     main()
