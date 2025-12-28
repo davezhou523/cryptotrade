@@ -3,7 +3,6 @@ from config import STRATEGY_PARAMS
 from trend.stochasticRSI import StochasticRSI
 from trend.trend import TrendDetector
 
-
 class TradingStrategy(bt.Strategy):
     """
     增强版策略：结合趋势判断、Stoch RSI指标买卖信号和ATR止损止盈的策略
@@ -14,6 +13,10 @@ class TradingStrategy(bt.Strategy):
         # 时间周期参数
         ('time_period', '1h'),
 
+        # 新增：价格波动过滤参数
+        ('price_fluctuation_threshold', STRATEGY_PARAMS['price_fluctuation_threshold_default']),
+        ('price_fluctuation_threshold_by_period', STRATEGY_PARAMS['price_fluctuation_threshold_by_period']),
+        
         # 趋势检测参数
         ('boll_period', STRATEGY_PARAMS['boll_period']),
         ('boll_dev', STRATEGY_PARAMS['boll_dev']),
@@ -103,7 +106,11 @@ class TradingStrategy(bt.Strategy):
         # 7. 成交量指标（量能确认）
         self.volume_ma_5 = bt.indicators.SMA(self.data_volume, period=5)
         self.volume_ma_20 = bt.indicators.SMA(self.data_volume, period=20)
-
+        # 动态设置价格波动过滤阈值
+        self.price_fluctuation_threshold = self.params.price_fluctuation_threshold_by_period.get(
+            self.params.time_period,
+            self.params.price_fluctuation_threshold
+        )
         # 跟踪订单状态
         self.order = None
         self.stop_loss = None
@@ -350,6 +357,12 @@ class TradingStrategy(bt.Strategy):
         """主策略逻辑，每个数据点执行一次"""
         if self.order:
             return
+            # 优化：动态价格波动过滤 - 根据时间周期调整阈值
+        if len(self.data_close) > 1:
+            price_change = abs(self.data_close[0] - self.data_close[-1]) / self.data_close[-1]
+            if price_change < self.price_fluctuation_threshold:
+                self.log(f'价格波动 ({price_change:.4%}) 小于阈值 ({self.price_fluctuation_threshold:.4%})，跳过')
+                return
         # 增强价格波动过滤（从0.5%提高到1%）
         if len(self.data_close) > 1:
             price_change = abs(self.data_close[0] - self.data_close[-1]) / self.data_close[-1]

@@ -25,7 +25,7 @@ STRATEGY_PARAMS = {
     'atr_volatility_multiplier': 1.5,  # ATR波动率乘数，用于判断趋势强度
     
     # Stoch RSI参数
-    'rsi_period': 14,
+    'rsi_period': 12,
     'stoch_period': 14,
     'stoch_d_period': 4,
     'oversold': 25,
@@ -51,4 +51,13 @@ STRATEGY_PARAMS = {
     
     # 其他参数
     'printlog': True,
+    
+    # 价格波动过滤参数
+    'price_fluctuation_threshold_default': 0.005,  # 默认波动阈值 (0.5%)
+    'price_fluctuation_threshold_by_period': {
+        '15m': 0.003,  # 15分钟周期使用0.3%阈值
+        '1h': 0.005,   # 1小时周期使用0.5%阈值
+        '4h': 0.01,    # 4小时周期使用1%阈值
+        '1d': 0.015    # 日线周期使用1.5%阈值
+    },
 }
