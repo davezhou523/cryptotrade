@@ -5,6 +5,7 @@ from trend.trend import TrendDetector
 
 class TradingStrategy(bt.Strategy):
     """
+    根据趋势判断买卖点
     增强版策略：结合趋势判断、Stoch RSI指标买卖信号和ATR止损止盈的策略
     使用多时间周期：日线级别判断趋势，{time_period}级别判断买卖点
     增加多指标验证机制，提高信号准确性

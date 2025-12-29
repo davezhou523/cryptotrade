@@ -161,6 +161,7 @@ class TrendDetector(bt.Indicator):
             self.lines.trend_type[0] = self.params.sideways_trend
         
         # 日线级别数据输出详细日志
+        print(f"is_daily: {self.is_daily}")
         if self.is_daily:
             # 获取当前日期
             current_date = self.data.datetime.datetime(0).strftime('%Y-%m-%d')
