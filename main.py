@@ -3,9 +3,7 @@ import sys
 from datetime import datetime
 from config import STRATEGY_PARAMS
 
-from trend.stochasticRSI import StochasticRSI
 from trend.tradingStrategy import TradingStrategy
-from trend.trend import TrendDetector
 
 # Binance API配置
 API_KEY = "34Y19F0ilIFbUlb0z3JbBZG99B7Qx42CKVMs35G69P6qMhngGgtzu1VadUmue4Z6"

@@ -179,12 +179,7 @@ class TrendDetector(bt.Indicator):
             
             # 输出详细日志
             print(f"\n===== 日线趋势分析 [{current_date}] =====")
-            print(f"收盘价: {format_num(close)}")
-            print(f"\n趋势判断结果:")
-            print(f"  上涨条件满足: {is_bullish}")
-            print(f"  下跌条件满足: {is_bearish}")
-            print(f"  最终趋势类型: {trend_type_name} ({self.lines.trend_type[0]})")
-
+            print(f"  收盘价: {format_num(close)}")
             print(f"\nDMI指标:")
             print(f"  ADX: {format_num(adx_value)} (阈值: {self.params.adx_threshold}), 周期: {self.params.dmi_period}")
             print(f"  +DI: {format_num(plus_di_value)}")
@@ -218,5 +213,9 @@ class TrendDetector(bt.Indicator):
             print(f"  成交量比值: {format_num(volume_ratio)} (阈值: {self.params.volume_ratio_threshold})")
             print(f"  成交量确认: {is_volume_confirm}")
             print(f"  配置参数: 成交量移动平均周期=5, 成交量比值阈值={self.params.volume_ratio_threshold}")
-
+            print(f"收盘价: {format_num(close)}")
+            print(f"\n趋势判断结果:")
+            print(f"  上涨条件满足: {is_bullish}")
+            print(f"  下跌条件满足: {is_bearish}")
+            print(f"  最终趋势类型: {trend_type_name} ({self.lines.trend_type[0]})")
             print("="*50)
