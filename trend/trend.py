@@ -135,6 +135,7 @@ class TrendDetector(bt.Indicator):
         
         # 上涨趋势条件优化：综合多个因素
         price_above_mid = close > boll_mid
+        # 修复后
         is_bullish = (price_above_mid and 
                      is_boll_mid_rising and  # 中轨连续上升
                      is_volume_confirm and   # 成交量放大确认
@@ -147,9 +148,12 @@ class TrendDetector(bt.Indicator):
                      is_trend_strong)         # ATR确认趋势强度
         
         # 综合DMI和BOLL的趋势判断
-        # 震荡趋势条件优化：ADX低 + (价格在通道内或通道狭窄)
-        if adx_value < self.params.adx_threshold and (in_boll_channel or is_narrow_channel):
-            self.lines.trend_type[0] = self.params.sideways_trend
+        # 震荡趋势条件优化：
+        # 1. ADX低 + (价格在通道内或通道狭窄)，OR
+        # 2. BOLL中轨既不连续上升也不连续下降（横盘）
+        if (adx_value < self.params.adx_threshold and (in_boll_channel or is_narrow_channel)) or \
+           (not is_boll_mid_rising and not is_boll_mid_falling):
+             self.lines.trend_type[0] = self.params.sideways_trend
         elif (plus_di_value > minus_di_value and adx_value >= self.params.adx_threshold and is_bullish):
             # DMI显示上涨且满足所有上涨确认条件，确认上涨趋势
             self.lines.trend_type[0] = self.params.bullish_trend
@@ -161,7 +165,6 @@ class TrendDetector(bt.Indicator):
             self.lines.trend_type[0] = self.params.sideways_trend
         
         # 日线级别数据输出详细日志
-        print(f"is_daily: {self.is_daily}")
         if self.is_daily:
             # 获取当前日期
             current_date = self.data.datetime.datetime(0).strftime('%Y-%m-%d')

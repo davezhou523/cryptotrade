@@ -99,9 +99,9 @@ def main():
         tz='Asia/Shanghai'
     )
     cerebro.adddata(data_daily)  # 日线数据作为次要数据（datas[1]）
-    cerebro.addstrategy(TestStrategy)
-    results = cerebro.run(maxcpus=1)
-    return
+    # cerebro.addstrategy(TestStrategy)
+    # results = cerebro.run(maxcpus=1)
+    # return
     # 添加策略
     # cerebro.addstrategy(TradingStrategy, time_period='4h')  # 例如使用4小时周期
     # 优化后的参数测试（减少到约400种组合）
