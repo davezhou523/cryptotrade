@@ -13,6 +13,7 @@ STRATEGY_PARAMS = {
     'boll_dev': 2,
     'dmi_period': 14,
     'adx_threshold': 20,
+    'adx_buffer_threshold': 1,  # 新增：ADX缓冲阈值，用于处理接近阈值的情况
     
     # BOLL通道优化参数
     'boll_channel_width_threshold': 2,  # 通道宽度阈值（百分比），小于此值视为窄幅震荡
