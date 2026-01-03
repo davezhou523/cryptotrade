@@ -110,7 +110,7 @@ class TrendDetector(bt.Indicator):
             avg_volume = self.volume_sma[0] if self.volume_sma[0] > 0 else 1
             volume_ratio = self.data.volume[0] / avg_volume
             is_volume_confirm = volume_ratio > self.params.volume_ratio_threshold
-        
+
         # 优化后的is_bullish和is_bearish定义
         strong_bullish_signal = (plus_di_value > minus_di_value * 2)  # +DI远大于-DI
         strong_bearish_signal = (minus_di_value > plus_di_value * 2)  # -DI远大于+DI
@@ -133,16 +133,24 @@ class TrendDetector(bt.Indicator):
         adx_near_bearish_threshold = (adx_value >= self.params.adx_threshold - self.params.adx_buffer_threshold)
         # ADX值是否明显低于阈值
         adx_far_below_threshold = (adx_value < self.params.adx_threshold - self.params.adx_buffer_threshold * 2)
-        
-        if (adx_near_bullish_threshold and 
-            plus_di_value > minus_di_value and 
-            is_bullish):
-            # 上涨趋势：ADX接近或超过阈值，+DI > -DI且满足上涨条件
+        #DI指标的差异幅度判断
+        di_diff = abs(plus_di_value - minus_di_value)
+        di_total = plus_di_value + minus_di_value
+        di_diff_ratio = di_diff / di_total if di_total > 0 else 0
+        min_di_diff_ratio = 0.1  # DI差异比例阈值，小于此值视为方向不明确
+
+        # 优化后的趋势判断逻辑
+        if (adx_near_bullish_threshold and
+                plus_di_value > minus_di_value and
+                di_diff_ratio >= min_di_diff_ratio and
+                is_bullish):
+            # 上涨趋势：ADX接近或超过阈值，+DI > -DI且差异足够大，满足上涨条件
             self.lines.trend_type[0] = self.params.bullish_trend
-        elif (adx_near_bearish_threshold and 
-              minus_di_value > plus_di_value and 
+        elif (adx_near_bearish_threshold and
+              minus_di_value > plus_di_value and
+              di_diff_ratio >= min_di_diff_ratio and
               is_bearish):
-            # 下跌趋势：ADX接近或超过阈值，-DI > +DI且满足下跌条件
+            # 下跌趋势：ADX接近或超过阈值，-DI > +DI且差异足够大，满足下跌条件
             self.lines.trend_type[0] = self.params.bearish_trend
         elif price_above_top and strong_bullish_signal:
             # 价格突破上轨且上涨动能极强，直接判定为上涨趋势
@@ -150,17 +158,17 @@ class TrendDetector(bt.Indicator):
         elif price_below_bottom and strong_bearish_signal:
             # 价格突破下轨且下跌动能极强，直接判定为下跌趋势
             self.lines.trend_type[0] = self.params.bearish_trend
-        elif (adx_far_below_threshold and 
-              is_narrow_channel and 
-              not is_boll_mid_rising and 
-              not is_boll_mid_falling):
-            # 震荡趋势：ADX明显低于阈值，通道窄且中轨无明显趋势
+        elif ((adx_far_below_threshold or di_diff_ratio < min_di_diff_ratio)
+              and is_narrow_channel
+              and not is_boll_mid_rising
+              and not is_boll_mid_falling):
+            # 震荡趋势：ADX明显低于阈值 或 DI差异太小，通道窄且中轨无明显趋势
             self.lines.trend_type[0] = self.params.sideways_trend
         else:
             # 综合判断：考虑所有因素
-            if is_bullish and plus_di_value > minus_di_value:
+            if is_bullish and plus_di_value > minus_di_value and di_diff_ratio >= min_di_diff_ratio:
                 self.lines.trend_type[0] = self.params.bullish_trend
-            elif is_bearish and minus_di_value > plus_di_value:
+            elif is_bearish and minus_di_value > plus_di_value and di_diff_ratio >= min_di_diff_ratio:
                 self.lines.trend_type[0] = self.params.bearish_trend
             else:
                 self.lines.trend_type[0] = self.params.sideways_trend
