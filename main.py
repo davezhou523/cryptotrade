@@ -42,6 +42,9 @@ def main():
     cerebro.broker.setcommission(commission=0.001, margin=1.0)
     # 或设置百分比滑点（基于价格的百分比）
     cerebro.broker.set_slippage_perc(0.001)  # 1‰的滑点
+    cerebro.broker.set_slippage_fixed(0.01)  # 固定滑点
+    # 关键设置：使用收盘价成交
+    cerebro.broker.set_coc(True)
     # 加载1小时级别数据（用于判断买卖点）
     # print("加载1小时级别数据...")
     # data_1h = bt.feeds.GenericCSVData(
