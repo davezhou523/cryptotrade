@@ -77,7 +77,7 @@ class TrendDetector(bt.Indicator):
         
         # 价格位置判断
         price_above_top = close > boll_top  # 价格突破上轨
-        price_below_bottom = close < boll_bot  # 价格突破下轨
+        price_near_bottom = close < boll_bot * 1.02  # 价格接近下轨（距离下轨2%以内）
         price_above_mid = close > boll_mid
         price_below_mid = close < boll_mid
         
@@ -122,9 +122,9 @@ class TrendDetector(bt.Indicator):
         )
         
         is_bearish = (
-            (price_below_mid or price_below_bottom) and 
-            minus_di_value > plus_di_value and 
-            (is_boll_mid_falling or price_below_bottom)
+            (price_below_mid or price_near_bottom) and
+            minus_di_value > plus_di_value and
+            (is_boll_mid_falling or price_near_bottom)
         )
         
         # 优化后的趋势判断逻辑
@@ -150,11 +150,14 @@ class TrendDetector(bt.Indicator):
               di_diff_ratio >= min_di_diff_ratio and
               is_bearish):
             # 下跌趋势：ADX接近或超过阈值，-DI > +DI且差异足够大，满足下跌条件
-            self.lines.trend_type[0] = self.params.bearish_trend
+            # 新增：针对明显下跌趋势的特殊判断（如2025-09-22的大阴线）
+            if (price_near_bottom or price_below_mid) and minus_di_value > plus_di_value * 1.2 and is_boll_mid_falling:
+                self.lines.trend_type[0] = self.params.bearish_trend  # 判定为下跌趋势
+            
         elif price_above_top and strong_bullish_signal:
             # 价格突破上轨且上涨动能极强，直接判定为上涨趋势
             self.lines.trend_type[0] = self.params.bullish_trend
-        elif price_below_bottom and strong_bearish_signal:
+        elif price_near_bottom and strong_bearish_signal:
             # 价格突破下轨且下跌动能极强，直接判定为下跌趋势
             self.lines.trend_type[0] = self.params.bearish_trend
         elif ((adx_far_below_threshold or di_diff_ratio < min_di_diff_ratio)
