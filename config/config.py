@@ -10,11 +10,11 @@ STRATEGY_PARAMS = {
     'bearish_trend': -1,
 
     # 趋势检测参数
-    'boll_period': 20,
-    'boll_dev': 2,
+    'boll_period': 20,    # 布林带中轨周期
+    'boll_dev': 2,        # 标准差倍数
     'dmi_period': 14,
     'adx_threshold': 20,
-    'adx_buffer_threshold': 1,  # 添加这个参数
+    'adx_buffer_threshold': 2,  # 添加这个参数
     
     # BOLL通道优化参数
     'boll_channel_width_threshold': 2,  # 通道宽度阈值（百分比），小于此值视为窄幅震荡

@@ -71,7 +71,7 @@ class TrendDetector(bt.Indicator):
         boll_mid = self.boll.lines.mid[0]
         boll_bot = self.boll.lines.bot[0]
         
-        # 历史数据（确保有足够的数据点）
+        # 历史数据（确保有足够的数据点）boll_mid_rising_periods：BOLL中轨连续上升的期数要求
         required_data_length = self.params.boll_mid_rising_periods + 5
         has_enough_data = len(self.data) > required_data_length
         
@@ -129,8 +129,7 @@ class TrendDetector(bt.Indicator):
         
         # 优化后的趋势判断逻辑
         # 趋势判断逻辑优化 - 使用缓冲阈值
-        adx_near_bullish_threshold = (adx_value >= self.params.adx_threshold - self.params.adx_buffer_threshold)
-        adx_near_bearish_threshold = (adx_value >= self.params.adx_threshold - self.params.adx_buffer_threshold)
+        adx_near_threshold = (adx_value >= self.params.adx_threshold - self.params.adx_buffer_threshold)
         # ADX值是否明显低于阈值
         adx_far_below_threshold = (adx_value < self.params.adx_threshold - self.params.adx_buffer_threshold * 2)
         #DI指标的差异幅度判断
@@ -140,13 +139,13 @@ class TrendDetector(bt.Indicator):
         min_di_diff_ratio = 0.1  # DI差异比例阈值，小于此值视为方向不明确
 
         # 优化后的趋势判断逻辑
-        if (adx_near_bullish_threshold and
+        if (adx_near_threshold and
                 plus_di_value > minus_di_value and
                 di_diff_ratio >= min_di_diff_ratio and
                 is_bullish):
             # 上涨趋势：ADX接近或超过阈值，+DI > -DI且差异足够大，满足上涨条件
             self.lines.trend_type[0] = self.params.bullish_trend
-        elif (adx_near_bearish_threshold and
+        elif (adx_near_threshold and
               minus_di_value > plus_di_value and
               di_diff_ratio >= min_di_diff_ratio and
               is_bearish):
