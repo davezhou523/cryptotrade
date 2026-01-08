@@ -33,11 +33,10 @@ def main():
     
     # 创建Cerebro引擎
     cerebro = bt.Cerebro()
-    time_period = 240
     # 设置初始资金
     initial_cash = 1000  # 可以修改这里的初始资金
     cerebro.broker.setcash(initial_cash)
-
+    cerebro.broker.set_shortcash(True)  # 允许用现金做空
     # 设置交易手续费和杠杆（杠杆为1，即100%保证金）
     cerebro.broker.setcommission(commission=0.001, margin=1.0)
     # 或设置百分比滑点（基于价格的百分比）
@@ -46,27 +45,9 @@ def main():
     # 关键设置：使用收盘价成交
     cerebro.broker.set_coc(True)
     # 加载1小时级别数据（用于判断买卖点）
-    # print("加载1小时级别数据...")
-    # data_1h = bt.feeds.GenericCSVData(
-    #     dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'btc'}usdt_1h_20250101_20251222.csv",
-    #     datetime=0,
-    #     open=1,
-    #     high=2,
-    #     low=3,
-    #     close=4,
-    #     volume=5,
-    #     openinterest=-1,
-    #     dtformat='%Y-%m-%d %H:%M:%S',
-    #     timeframe=bt.TimeFrame.Minutes,
-    #     compression=60,
-    #     headers=True
-    # )
-    # cerebro.adddata(data_1h)  # 1小时数据作为主要数据（datas[0]）
-
-    # 加载4小时级别数据（用于判断买卖点）
-    print("加载4小时级别数据...")
-    data_4h = bt.feeds.GenericCSVData(
-        dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'btc'}usdt_4h_20250101_20251222.csv",
+    print("加载1小时级别数据...")
+    data_1h = bt.feeds.GenericCSVData(
+        dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'btc'}usdt_1h_20250101_20251222.csv",
         datetime=0,
         open=1,
         high=2,
@@ -76,10 +57,28 @@ def main():
         openinterest=-1,
         dtformat='%Y-%m-%d %H:%M:%S',
         timeframe=bt.TimeFrame.Minutes,
-        compression=time_period,  # 4小时 = 240分钟
+        compression=60,
         headers=True
     )
-    cerebro.adddata(data_4h)  # 4小时数据作为主要数据（datas[0]）
+    cerebro.adddata(data_1h)  # 1小时数据作为主要数据（datas[0]）
+
+    # 加载4小时级别数据（用于判断买卖点）
+    # print("加载4小时级别数据...")
+    # data_4h = bt.feeds.GenericCSVData(
+    #     dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'btc'}usdt_4h_20250101_20251222.csv",
+    #     datetime=0,
+    #     open=1,
+    #     high=2,
+    #     low=3,
+    #     close=4,
+    #     volume=5,
+    #     openinterest=-1,
+    #     dtformat='%Y-%m-%d %H:%M:%S',
+    #     timeframe=bt.TimeFrame.Minutes,
+    #     compression=time_period,  # 4小时 = 240分钟
+    #     headers=True
+    # )
+    # cerebro.adddata(data_4h)  # 4小时数据作为主要数据（datas[0]）
 
     # 加载日线级别数据（用于判断趋势）
     # 加载日线级别数据（用于判断趋势）
@@ -109,9 +108,17 @@ def main():
     # cerebro.addstrategy(TradingStrategy, time_period='4h')  # 例如使用4小时周期
     # 优化后的参数测试（减少到约400种组合）
     # 第一阶段：只测试核心参数
+    optimization_time_period = '1h'  # 与optstrategy中的配置一致
+    # 根据时间周期设置压缩率
+    if optimization_time_period == '1h':
+        compression = 60
+    elif optimization_time_period == '4h':
+        compression = 240
+    else:
+        compression = 60  # 默认1小时
     cerebro.optstrategy(
         TradingStrategy,
-        time_period=['4h'],
+        time_period=[optimization_time_period],
         rsi_period=range(12, 13),  # 重点测试RSI周期
         stoch_period=14,  # 固定为常用值
         fast_ma_period=12,  # 固定
@@ -122,7 +129,7 @@ def main():
 
     # 添加分析器
     # 修改夏普比率分析器配置，添加timeframe参数
-    cerebro.addanalyzer(bt.analyzers.SharpeRatio, timeframe=bt.TimeFrame.Minutes, compression=time_period, _name='sharpe')
+    cerebro.addanalyzer(bt.analyzers.SharpeRatio, timeframe=bt.TimeFrame.Minutes, compression=compression, _name='sharpe')
 
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trades')
@@ -148,7 +155,8 @@ def main():
         
         # 获取当前参数组合
         params = strat.params
-        
+        params_str = f"RSI周期: {params.rsi_period}, 快速MA周期: {params.fast_ma_period}, 慢速MA周期: {params.slow_ma_period}"
+        print(params_str)
         try:
             # 获取分析结果
             sharpe_ratio = strat.analyzers.sharpe.get_analysis()
