@@ -6,6 +6,7 @@ import requests
 import time
 import pandas as pd
 import os
+import numpy as np
 from datetime import datetime
 from .base import DataFetcher
 
@@ -134,6 +135,350 @@ class BinanceDataFetcher(DataFetcher):
             import traceback
             traceback.print_exc()
             return None
+
+    def get_ema_from_binance(self, symbol: str = None, interval: str = None, period: int = 12, 
+                           start_time: datetime = None, end_time: datetime = None, csv_file: str = None) -> pd.DataFrame:
+        """
+        使用Binance API获取K线数据并计算EMA值，或直接从CSV文件计算
+        :param symbol: 交易对（当使用API时需要）
+        :param interval: 时间间隔（当使用API时需要）
+        :param period: EMA周期
+        :param start_time: 开始时间（当使用API时需要）
+        :param end_time: 结束时间（当使用API时需要）
+        :param csv_file: 本地CSV文件路径（可选，直接从文件读取数据）
+        :return: 包含K线数据和EMA值的DataFrame
+        """
+        # 获取或读取K线数据
+        if csv_file:
+            if not os.path.exists(csv_file):
+                print(f"文件不存在: {csv_file}")
+                return None
+            df = pd.read_csv(csv_file)
+        else:
+            klines_file = self.fetch_klines(symbol, interval, start_time, end_time)
+            if not klines_file:
+                return None
+            df = pd.read_csv(klines_file)
+        
+        # 计算EMA值（与Binance算法一致）
+        # 平滑因子 = 2 / (周期 + 1)
+        smoothing = 2 / (period + 1)
+        
+        # 使用SMA作为初始值
+        df['EMA'] = df['close'].ewm(span=period, adjust=False).mean()
+        
+        return df
+    
+    def get_dmi_from_binance(self, symbol: str = None, interval: str = None, period: int = 14, 
+                           start_time: datetime = None, end_time: datetime = None, csv_file: str = None) -> pd.DataFrame:
+        """
+        使用Binance API获取K线数据并计算DMI值，或直接从CSV文件计算
+        :param symbol: 交易对（当使用API时需要）
+        :param interval: 时间间隔（当使用API时需要）
+        :param period: DMI周期
+        :param start_time: 开始时间（当使用API时需要）
+        :param end_time: 结束时间（当使用API时需要）
+        :param csv_file: 本地CSV文件路径（可选，直接从文件读取数据）
+        :return: 包含K线数据和DMI值的DataFrame
+        """
+        # 获取或读取K线数据
+        if csv_file:
+            if not os.path.exists(csv_file):
+                print(f"文件不存在: {csv_file}")
+                return None
+            df = pd.read_csv(csv_file)
+        else:
+            klines_file = self.fetch_klines(symbol, interval, start_time, end_time)
+            if not klines_file:
+                return None
+            df = pd.read_csv(klines_file)
+        
+        # 计算TR（真实波幅）
+        df['TR'] = df.apply(lambda x: max(x['high'] - x['low'], 
+                                         abs(x['high'] - x['close'].shift(1)), 
+                                         abs(x['low'] - x['close'].shift(1))), axis=1)
+        
+        # 计算+DM和-DM
+        df['+DM'] = df.apply(lambda x: x['high'] - x['high'].shift(1) if (x['high'] - x['high'].shift(1) > x['low'].shift(1) - x['low'] and x['high'] - x['high'].shift(1) > 0) else 0, axis=1)
+        df['-DM'] = df.apply(lambda x: x['low'].shift(1) - x['low'] if (x['low'].shift(1) - x['low'] > x['high'] - x['high'].shift(1) and x['low'].shift(1) - x['low'] > 0) else 0, axis=1)
+        
+        # 计算SMMA（平滑移动平均）
+        def calculate_smma(series, period):
+            smma = series.rolling(window=period).mean().iloc[period-1]
+            result = [0] * len(series)
+            result[period-1] = smma
+            for i in range(period, len(series)):
+                smma = (smma * (period - 1) + series.iloc[i]) / period
+                result[i] = smma
+            return result
+        
+        df['SMMA_TR'] = calculate_smma(df['TR'], period)
+        df['SMMA_PLUS_DM'] = calculate_smma(df['+DM'], period)
+        df['SMMA_MINUS_DM'] = calculate_smma(df['-DM'], period)
+        
+        # 计算+DI和-DI
+        df['+DI'] = 100 * (df['SMMA_PLUS_DM'] / df['SMMA_TR'])
+        df['-DI'] = 100 * (df['SMMA_MINUS_DM'] / df['SMMA_TR'])
+        
+        # 计算DX
+        df['DX'] = 100 * (abs(df['+DI'] - df['-DI']) / (df['+DI'] + df['-DI']))
+        
+        # 计算ADX
+        df['ADX'] = calculate_smma(df['DX'], period)
+        
+        return df
+    
+    def get_boll_from_binance(self, symbol: str = None, interval: str = None, period: int = 20, 
+                             devfactor: float = 2.0, start_time: datetime = None, end_time: datetime = None, 
+                             csv_file: str = None) -> pd.DataFrame:
+        """
+        使用Binance API获取K线数据并计算BOLL值，或直接从CSV文件计算
+        :param symbol: 交易对（当使用API时需要）
+        :param interval: 时间间隔（当使用API时需要）
+        :param period: BOLL周期
+        :param devfactor: 标准差乘数
+        :param start_time: 开始时间（当使用API时需要）
+        :param end_time: 结束时间（当使用API时需要）
+        :param csv_file: 本地CSV文件路径（可选，直接从文件读取数据）
+        :return: 包含K线数据和BOLL值的DataFrame
+        """
+        # 获取或读取K线数据
+        if csv_file:
+            if not os.path.exists(csv_file):
+                print(f"文件不存在: {csv_file}")
+                return None
+            df = pd.read_csv(csv_file)
+        else:
+            klines_file = self.fetch_klines(symbol, interval, start_time, end_time)
+            if not klines_file:
+                return None
+            df = pd.read_csv(klines_file)
+        
+        # 计算BOLL值（与Binance算法一致）
+        df['BOLL_MID'] = df['close'].rolling(window=period).mean()  # 中轨：SMA
+        df['BOLL_STD'] = df['close'].rolling(window=period).std()  # 标准差
+        df['BOLL_TOP'] = df['BOLL_MID'] + devfactor * df['BOLL_STD']  # 上轨
+        df['BOLL_BOT'] = df['BOLL_MID'] - devfactor * df['BOLL_STD']  # 下轨
+        
+        return df
+    
+    def get_stoch_rsi_from_binance(self, symbol: str = None, interval: str = None, rsi_period: int = 14, 
+                                  stoch_period: int = 14, start_time: datetime = None, end_time: datetime = None, 
+                                  csv_file: str = None) -> pd.DataFrame:
+        """
+        使用Binance API获取K线数据并计算Stoch RSI值，或直接从CSV文件计算
+        :param symbol: 交易对（当使用API时需要）
+        :param interval: 时间间隔（当使用API时需要）
+        :param rsi_period: RSI周期
+        :param stoch_period: Stoch RSI周期
+        :param start_time: 开始时间（当使用API时需要）
+        :param end_time: 结束时间（当使用API时需要）
+        :param csv_file: 本地CSV文件路径（可选，直接从文件读取数据）
+        :return: 包含K线数据和Stoch RSI值的DataFrame
+        """
+        # 获取或读取K线数据
+        if csv_file:
+            if not os.path.exists(csv_file):
+                print(f"文件不存在: {csv_file}")
+                return None
+            df = pd.read_csv(csv_file)
+        else:
+            klines_file = self.fetch_klines(symbol, interval, start_time, end_time)
+            if not klines_file:
+                return None
+            df = pd.read_csv(klines_file)
+        
+        # 计算RSI
+        delta = df['close'].diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        
+        avg_gain = gain.rolling(window=rsi_period).mean()
+        avg_loss = loss.rolling(window=rsi_period).mean()
+        
+        rs = avg_gain / avg_loss
+        df['RSI'] = 100 - (100 / (1 + rs))
+        
+        # 计算Stoch RSI
+        df['RSI_LOW'] = df['RSI'].rolling(window=stoch_period).min()
+        df['RSI_HIGH'] = df['RSI'].rolling(window=stoch_period).max()
+        
+        # 避免除零错误
+        df['STOCH_RSI'] = 100 * ((df['RSI'] - df['RSI_LOW']) / (df['RSI_HIGH'] - df['RSI_LOW']))
+        df['STOCH_RSI'] = df['STOCH_RSI'].fillna(50)  # 当最高价等于最低价时，设置为中间值50
+        
+        # 计算%K和%D
+        df['PERC_K'] = df['STOCH_RSI'].rolling(window=3).mean()
+        df['PERC_D'] = df['PERC_K'].rolling(window=3).mean()
+        
+        # 将结果限制在0-100范围内
+        df['PERC_K'] = df['PERC_K'].clip(0, 100)
+        df['PERC_D'] = df['PERC_D'].clip(0, 100)
+        
+        return df
+    
+    def get_atr_from_binance(self, symbol: str = None, interval: str = None, period: int = 14, 
+                            start_time: datetime = None, end_time: datetime = None, csv_file: str = None) -> pd.DataFrame:
+        """
+        使用Binance API获取K线数据并计算ATR值，或直接从CSV文件计算
+        :param symbol: 交易对（当使用API时需要）
+        :param interval: 时间间隔（当使用API时需要）
+        :param period: ATR周期
+        :param start_time: 开始时间（当使用API时需要）
+        :param end_time: 结束时间（当使用API时需要）
+        :param csv_file: 本地CSV文件路径（可选，直接从文件读取数据）
+        :return: 包含K线数据和ATR值的DataFrame
+        """
+        # 获取或读取K线数据
+        if csv_file:
+            if not os.path.exists(csv_file):
+                print(f"文件不存在: {csv_file}")
+                return None
+            df = pd.read_csv(csv_file)
+        else:
+            klines_file = self.fetch_klines(symbol, interval, start_time, end_time)
+            if not klines_file:
+                return None
+            df = pd.read_csv(klines_file)
+        
+        # 计算ATR值（与Binance算法一致）
+        # 计算真实波幅
+        df['TR1'] = df['high'] - df['low']
+        df['TR2'] = abs(df['high'] - df['close'].shift(1))
+        df['TR3'] = abs(df['low'] - df['close'].shift(1))
+        df['TR'] = df[['TR1', 'TR2', 'TR3']].max(axis=1)
+        
+        # 计算ATR（使用SMA）
+        df['ATR'] = df['TR'].rolling(window=period).mean()
+        
+        return df
+    
+    def get_technical_indicators_from_binance(self, symbol: str = None, interval: str = None, params: dict = None, 
+                                             start_time: datetime = None, end_time: datetime = None, 
+                                             csv_file: str = None) -> pd.DataFrame:
+        """
+        使用Binance API获取K线数据并计算所有技术指标值，或直接从CSV文件计算
+        :param symbol: 交易对（当使用API时需要）
+        :param interval: 时间间隔（当使用API时需要）
+        :param params: 各指标参数，格式: {'ema_period': 12, 'dmi_period': 14, 'boll_period': 20, 'boll_dev': 2, 'rsi_period': 14, 'stoch_period': 14, 'atr_period': 14}
+        :param start_time: 开始时间（当使用API时需要）
+        :param end_time: 结束时间（当使用API时需要）
+        :param csv_file: 本地CSV文件路径（可选，直接从文件读取数据）
+        :return: 包含K线数据和所有技术指标值的DataFrame
+        """
+        # 获取或读取K线数据
+        if csv_file:
+            if not os.path.exists(csv_file):
+                print(f"文件不存在: {csv_file}")
+                return None
+            df = pd.read_csv(csv_file)
+        else:
+            klines_file = self.fetch_klines(symbol, interval, start_time, end_time)
+            if not klines_file:
+                return None
+            df = pd.read_csv(klines_file)
+        
+        # 使用默认参数如果没有提供
+        if params is None:
+            params = {
+                'ema_period': 12,
+                'dmi_period': 14,
+                'boll_period': 20,
+                'boll_dev': 2.0,
+                'rsi_period': 14,
+                'stoch_period': 14,
+                'atr_period': 14
+            }
+        
+        # 计算所有技术指标
+        if 'ema_period' in params:
+            # 计算EMA
+            df['EMA'] = df['close'].ewm(span=params['ema_period'], adjust=False).mean()
+        
+        if 'dmi_period' in params:
+            # 计算DMI
+            dmi_period = params['dmi_period']
+            df['TR'] = df.apply(lambda x: max(x['high'] - x['low'], 
+                                             abs(x['high'] - x['close'].shift(1)), 
+                                             abs(x['low'] - x['close'].shift(1))), axis=1)
+            
+            df['+DM'] = df.apply(lambda x: x['high'] - x['high'].shift(1) if (x['high'] - x['high'].shift(1) > x['low'].shift(1) - x['low'] and x['high'] - x['high'].shift(1) > 0) else 0, axis=1)
+            df['-DM'] = df.apply(lambda x: x['low'].shift(1) - x['low'] if (x['low'].shift(1) - x['low'] > x['high'] - x['high'].shift(1) and x['low'].shift(1) - x['low'] > 0) else 0, axis=1)
+            
+            def calculate_smma(series, period):
+                smma = series.rolling(window=period).mean().iloc[period-1]
+                result = [0] * len(series)
+                result[period-1] = smma
+                for i in range(period, len(series)):
+                    smma = (smma * (period - 1) + series.iloc[i]) / period
+                    result[i] = smma
+                return result
+            
+            df['SMMA_TR'] = calculate_smma(df['TR'], dmi_period)
+            df['SMMA_PLUS_DM'] = calculate_smma(df['+DM'], dmi_period)
+            df['SMMA_MINUS_DM'] = calculate_smma(df['-DM'], dmi_period)
+            
+            df['+DI'] = 100 * (df['SMMA_PLUS_DM'] / df['SMMA_TR'])
+            df['-DI'] = 100 * (df['SMMA_MINUS_DM'] / df['SMMA_TR'])
+            
+            df['DX'] = 100 * (abs(df['+DI'] - df['-DI']) / (df['+DI'] + df['-DI']))
+            df['ADX'] = calculate_smma(df['DX'], dmi_period)
+        
+        if 'boll_period' in params and 'boll_dev' in params:
+            # 计算BOLL
+            boll_period = params['boll_period']
+            boll_dev = params['boll_dev']
+            df['BOLL_MID'] = df['close'].rolling(window=boll_period).mean()
+            df['BOLL_STD'] = df['close'].rolling(window=boll_period).std()
+            df['BOLL_TOP'] = df['BOLL_MID'] + boll_dev * df['BOLL_STD']
+            df['BOLL_BOT'] = df['BOLL_MID'] - boll_dev * df['BOLL_STD']
+        
+        if 'rsi_period' in params and 'stoch_period' in params:
+            # 计算Stoch RSI
+            rsi_period = params['rsi_period']
+            stoch_period = params['stoch_period']
+            
+            delta = df['close'].diff()
+            gain = delta.where(delta > 0, 0)
+            loss = -delta.where(delta < 0, 0)
+            
+            avg_gain = gain.rolling(window=rsi_period).mean()
+            avg_loss = loss.rolling(window=rsi_period).mean()
+            
+            rs = avg_gain / avg_loss
+            df['RSI'] = 100 - (100 / (1 + rs))
+            
+            df['RSI_LOW'] = df['RSI'].rolling(window=stoch_period).min()
+            df['RSI_HIGH'] = df['RSI'].rolling(window=stoch_period).max()
+            
+            df['STOCH_RSI'] = 100 * ((df['RSI'] - df['RSI_LOW']) / (df['RSI_HIGH'] - df['RSI_LOW']))
+            df['STOCH_RSI'] = df['STOCH_RSI'].fillna(50)
+            
+            df['PERC_K'] = df['STOCH_RSI'].rolling(window=3).mean()
+            df['PERC_D'] = df['PERC_K'].rolling(window=3).mean()
+            
+            df['PERC_K'] = df['PERC_K'].clip(0, 100)
+            df['PERC_D'] = df['PERC_D'].clip(0, 100)
+        
+        if 'atr_period' in params:
+            # 计算ATR
+            atr_period = params['atr_period']
+            df['TR1'] = df['high'] - df['low']
+            df['TR2'] = abs(df['high'] - df['close'].shift(1))
+            df['TR3'] = abs(df['low'] - df['close'].shift(1))
+            df['TR'] = df[['TR1', 'TR2', 'TR3']].max(axis=1)
+            df['ATR'] = df['TR'].rolling(window=atr_period).mean()
+        
+        return df
+    
+    def calculate_indicators_from_csv(self, csv_file: str, params: dict = None) -> pd.DataFrame:
+        """
+        直接从本地CSV文件计算所有技术指标
+        :param csv_file: 本地CSV文件路径
+        :param params: 各指标参数，格式: {'ema_period': 12, 'dmi_period': 14, 'boll_period': 20, 'boll_dev': 2, 'rsi_period': 14, 'stoch_period': 14, 'atr_period': 14}
+        :return: 包含K线数据和所有技术指标值的DataFrame
+        """
+        return self.get_technical_indicators_from_binance(csv_file=csv_file, params=params)
     
     def get_supported_intervals(self) -> list:
         """

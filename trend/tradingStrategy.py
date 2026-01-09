@@ -585,8 +585,8 @@ class TradingStrategy(bt.Strategy):
 
         else:  # 没有仓位，考虑买入或做空
             # 首先过滤1小时级别信号
-            if not self.filter_1h_signal():
-                return  # 信号不符合条件，跳过本次循环
+            # if not self.filter_1h_signal():
+            #     return  # 信号不符合条件，跳过本次循环
             # 检查每日交易次数限制
             current_date = self.datas[0].datetime.date(0)
             if self.last_trade_date == current_date and self.daily_trade_count >= self.params.max_trades_per_day:
