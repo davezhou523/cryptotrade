@@ -139,12 +139,41 @@ class TradingStrategy(bt.Strategy):
         self.daily_trade_count = 0
         self.last_trade_date = None
 
+    # 示例：在tradingStrategy.py中增强1小时信号过滤
+    def filter_1h_signal(self):
+        stoch_rsi_k = self.stoch_rsi.percK[0]
+        stoch_rsi_d = self.stoch_rsi.percD[0]
+
+        # 结合日线趋势过滤
+        if self.trend_detector_daily.lines.trend_type[0] == STRATEGY_PARAMS['bullish_trend']:
+            # 上涨趋势下，只做多不做空
+            if not (stoch_rsi_k < 30 and stoch_rsi_d < 30):
+                return False
+        elif self.trend_detector_daily.lines.trend_type[0] == STRATEGY_PARAMS['bearish_trend']:
+            # 下跌趋势下，只做空不做多
+            if not (stoch_rsi_k > 70 and stoch_rsi_d > 70):
+                return False
+
+        # 增加指标共振条件
+        if abs(self.fast_ma[0] - self.slow_ma[0]) / self.slow_ma[0] < 0.005:
+            return False  # 双均线过于接近，方向不明确
+
+        return True
+
     # 在tradingStrategy.py中修改log方法
     def log(self, txt, dt=None, doprint=False):
-        """Logging function"""
-        if True:  # 关闭所有日志输出
+        """日志记录函数，确保使用UTF-8编码输出"""
+        if doprint or self.params.printlog:
             dt = dt or self.datas[0].datetime.datetime(0)
-            print(f'{dt.strftime("%Y-%m-%d %H:%M:%S")} {txt}')
+            log_string = f'{dt.strftime("%Y-%m-%d %H:%M:%S")} 当前价格: {self.data_close[0]:.2f} {txt}'
+            
+            # 确保使用UTF-8编码输出
+            try:
+                print(log_string)
+            except UnicodeEncodeError:
+                # 如果出现编码错误，替换无法编码的字符
+                log_string = log_string.encode('gbk', 'replace').decode('gbk')
+                print(log_string)
 
     # 在tradingStrategy.py的notify_order方法中
     def notify_order(self, order):
@@ -443,8 +472,8 @@ class TradingStrategy(bt.Strategy):
             price_change = abs(self.data_close[0] - self.data_close[-1]) / self.data_close[-1]
             if price_change < 0.01:  # 波动小于1%时跳过
                 return
-        # 记录当前价格（指定时间周期）
-        self.log(f'当前价格: {self.data_close[0]:.2f}')
+
+
 
         # 获取指定时间周期的Stoch RSI指标值
         stoch_rsi_k = self.stoch_rsi.percK[0]
@@ -554,6 +583,9 @@ class TradingStrategy(bt.Strategy):
                 self.order = self.close()  # 使用close()代替sell()
 
         else:  # 没有仓位，考虑买入或做空
+            # 首先过滤1小时级别信号
+            if not self.filter_1h_signal():
+                return  # 信号不符合条件，跳过本次循环
             # 检查每日交易次数限制
             current_date = self.datas[0].datetime.date(0)
             if self.last_trade_date == current_date and self.daily_trade_count >= self.params.max_trades_per_day:

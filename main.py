@@ -225,7 +225,8 @@ def main():
         
         except Exception as e:
             print(f"\n参数组合 {i+1} 分析失败: {str(e)}")
-    
+    #2025-02-23 15:00:00 当前价格: 2825.20 1h Stoch RSI: K=100.00, D=68.32 实际binance K:83.09 D:58.38 RSI天数长度:14 Stoch长度:14 平滑k:3 平滑d:3
+    #2025-02-24 16:00:00 当前价格: 2681.60 1h Stoch RSI: K=7.10, D=24.85 实际binance K:81.86 D:74.73
     # 打印最佳参数组合
     if best_params is not None:
         print("\n" + "=" * 80)

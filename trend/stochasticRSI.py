@@ -1,51 +1,46 @@
-# 只保留需要的导入
 import backtrader as bt
 from config import STRATEGY_PARAMS
+
 class StochasticRSI(bt.Indicator):
     """
-    自定义Stochastic RSI指标
-    计算方法：先计算RSI，然后对RSI应用Stochastic指标
+    标准Stoch RSI指标实现（与Binance一致）
+    计算公式：StochRSI = (RSI - RSI_Low) / (RSI_High - RSI_Low) * 100
+    其中：
+    - RSI：基础RSI指标（14周期）
+    - RSI_Low：RSI在指定周期内的最低价（14周期）
+    - RSI_High：RSI在指定周期内的最高价（14周期）
+    - %K：StochRSI的3周期简单移动平均
+    - %D：%K的3周期简单移动平均
     """
     lines = ('percK', 'percD')
     params = (
         ('period', STRATEGY_PARAMS['rsi_period']),  # RSI周期
         ('stoch_period', STRATEGY_PARAMS['stoch_period']),  # Stochastic K周期
         ('dperiod', STRATEGY_PARAMS['stoch_d_period']),  # Stochastic D周期
-        ('movav', bt.indicators.EMA),  # 移动平均线类型
-        ('smooth_period', STRATEGY_PARAMS['smooth_period']),  # 增加平滑周期到5
-        ('rsi_smooth_period', STRATEGY_PARAMS['rsi_smooth_period']),  # RSI平滑周期
+        ('movav', bt.ind.SimpleMovingAverage),  # 移动平均类型
     )
 
     def __init__(self):
-        # 计算RSI
+        # 1. 计算基础RSI（使用标准14周期）
         rsi = bt.indicators.RSI(period=self.params.period)
 
-        # 对RSI指标本身进行平滑处理
-        smoothed_rsi = self.params.movav(rsi, period=self.params.rsi_smooth_period)
+        # 2. 计算RSI在指定周期内的最高价和最低价
+        highest_rsi = bt.indicators.Highest(rsi, period=self.params.stoch_period)
+        lowest_rsi = bt.indicators.Lowest(rsi, period=self.params.stoch_period)
 
-        # 计算RSI在指定周期内的最高价和最低价
-        highest_rsi = bt.indicators.Highest(smoothed_rsi, period=self.params.stoch_period)
-        lowest_rsi = bt.indicators.Lowest(smoothed_rsi, period=self.params.stoch_period)
-
-        # 计算%K - 修复分母为0的情况
-        # 当最高价等于最低价时，避免除以0，返回50（中性）
-        raw_percK = bt.If(
+        # 3. 计算原始StochRSI值
+        raw_stoch_rsi = bt.If(
             highest_rsi == lowest_rsi,
-            50.0,
-            100.0 * (smoothed_rsi - lowest_rsi) / (highest_rsi - lowest_rsi)
+            50.0,  # 当最高价等于最低价时，设置为中间值50
+            100.0 * (rsi - lowest_rsi) / (highest_rsi - lowest_rsi)
         )
 
-        # 添加边界检查，确保K值在0-100之间
-        bounded_percK = bt.Max(bt.Min(raw_percK, 100.0), 0.0)
+        # 4. 计算%K值：对原始StochRSI进行3周期简单移动平均
+        self.l.percK = self.params.movav(raw_stoch_rsi, period=3)
 
-        # 对K值进行额外平滑
-        smoothed_percK = self.params.movav(bounded_percK, period=self.params.smooth_period)
+        # 5. 计算%D值：对%K值进行3周期简单移动平均
+        self.l.percD = self.params.movav(self.l.percK, period=3)
 
-        # 再次进行边界检查
-        self.l.percK = bt.Max(bt.Min(smoothed_percK, 100.0), 0.0)
-
-        # 计算%D - %K的移动平均线
-        raw_percD = self.params.movav(self.l.percK, period=self.params.dperiod)
-
-        # 添加边界检查，确保D值在0-100之间
-        self.l.percD = bt.Max(bt.Min(raw_percD, 100.0), 0.0)
+        # 6. 将结果限制在0-100范围内
+        self.l.percK = bt.Max(bt.Min(self.l.percK, 100.0), 0.0)
+        self.l.percD = bt.Max(bt.Min(self.l.percD, 100.0), 0.0)
