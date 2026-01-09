@@ -121,8 +121,6 @@ def main():
         time_period=[optimization_time_period],
         rsi_period=range(12, 13),  # 重点测试RSI周期
         stoch_period=14,  # 固定为常用值
-        fast_ma_period=12,  # 固定
-        slow_ma_period=50,  # 固定
         stop_loss_multiplier=3,  # 固定
         take_profit_multiplier=4  # 固定
     )

@@ -45,7 +45,9 @@ STRATEGY_PARAMS = {
     
     # 移动平均线参数
     'ma_period': 60,
-    
+    'fast_ma_period': 12,
+    'slow_ma_period': 26,
+
     # 风险控制参数
     'max_loss_per_trade': 0.01,
     'min_hold_periods': 3,

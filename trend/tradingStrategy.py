@@ -1,5 +1,6 @@
 import backtrader as bt
 from config import STRATEGY_PARAMS
+from trend.ema import CustomEMA
 from trend.stochasticRSI import StochasticRSI
 from trend.trend import TrendDetector
 
@@ -43,8 +44,8 @@ class TradingStrategy(bt.Strategy):
         ('ma_period', STRATEGY_PARAMS['ma_period']),
 
         # 新增：双均线参数
-        ('fast_ma_period', 10),  # 快速MA
-        ('slow_ma_period', 60),  # 慢速MA
+        ('fast_ma_period', STRATEGY_PARAMS['fast_ma_period']),  # 快速MA
+        ('slow_ma_period', STRATEGY_PARAMS['slow_ma_period']),  # 慢速MA
 
         # 风险控制参数
         ('max_loss_per_trade', STRATEGY_PARAMS['max_loss_per_trade']),
@@ -92,8 +93,8 @@ class TradingStrategy(bt.Strategy):
         )
 
         # 3. 双移动平均线（趋势确认）
-        self.fast_ma = bt.indicators.EMA(self.data_close, period=self.params.fast_ma_period)
-        self.slow_ma = bt.indicators.EMA(self.data_close, period=self.params.slow_ma_period)
+        self.fast_ma = CustomEMA(self.data_close, period=self.params.fast_ma_period)
+        self.slow_ma = CustomEMA(self.data_close, period=self.params.slow_ma_period)
 
         # 4. BOLL通道（支撑阻力确认）
         self.boll = bt.indicators.BBands(
@@ -106,9 +107,9 @@ class TradingStrategy(bt.Strategy):
 
         # 6. MACD指标（动量确认）
         self.macd = bt.indicators.MACD(
-            period_me1=12,
-            period_me2=26,
-            period_signal=9
+            period_me1=self.params.fast_ma_period,
+            period_me2=self.params.slow_ma_period,
+            period_signal=9 #也可以基于交易周期调整，例如小时线用9，日线用14
         )
 
         # 7. 成交量指标（量能确认）
