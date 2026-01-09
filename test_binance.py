@@ -1,7 +1,5 @@
-"""
-测试从本地CSV文件计算技术指标
-"""
-
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import os
 import pandas as pd
 from datetime import datetime
@@ -17,7 +15,7 @@ def test_local_indicators():
     fetcher = BinanceDataFetcher()
     
     # 本地CSV文件路径
-    csv_file = "./ETH/ethusdt_1h_20250101_20251222.csv"
+    csv_file = "data/ETH/ethusdt_1h_20250101_20251222.csv"
     
     if not os.path.exists(csv_file):
         print(f"错误：文件不存在 - {csv_file}")

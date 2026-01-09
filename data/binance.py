@@ -193,15 +193,27 @@ class BinanceDataFetcher(DataFetcher):
                 return None
             df = pd.read_csv(klines_file)
         
-        # 计算TR（真实波幅）
-        df['TR'] = df.apply(lambda x: max(x['high'] - x['low'], 
-                                         abs(x['high'] - x['close'].shift(1)), 
-                                         abs(x['low'] - x['close'].shift(1))), axis=1)
-        
-        # 计算+DM和-DM
-        df['+DM'] = df.apply(lambda x: x['high'] - x['high'].shift(1) if (x['high'] - x['high'].shift(1) > x['low'].shift(1) - x['low'] and x['high'] - x['high'].shift(1) > 0) else 0, axis=1)
-        df['-DM'] = df.apply(lambda x: x['low'].shift(1) - x['low'] if (x['low'].shift(1) - x['low'] > x['high'] - x['high'].shift(1) and x['low'].shift(1) - x['low'] > 0) else 0, axis=1)
-        
+
+
+        # 在binance.py文件中修改get_dmi_from_binance方法：
+
+        # 在binance.py文件中修改get_dmi_from_binance方法：
+
+        # 1. 修复前一天价格数据的计算（原错误行200-202）
+        df['prev_high'] = df['high'].shift(1)  # 正确：对high列进行shift
+        df['prev_low'] = df['low'].shift(1)  # 修复：将prev_low改为low
+        df['prev_close'] = df['close'].shift(1)  # 正确：对close列进行shift
+
+        # 2. 修复TR计算（之前已修复）
+        df['TR1'] = df['high'] - df['low']
+        df['TR2'] = abs(df['high'] - df['prev_close'])
+        df['TR3'] = abs(df['low'] - df['prev_close'])
+        df['TR'] = df[['TR1', 'TR2', 'TR3']].max(axis=1)
+
+        # 3. 修复+DM计算（原错误行206）
+        df['high_diff'] = df['high'] - df['prev_high']
+        df['low_diff'] = df['prev_low'] - df['low']
+
         # 计算SMMA（平滑移动平均）
         def calculate_smma(series, period):
             smma = series.rolling(window=period).mean().iloc[period-1]
@@ -398,13 +410,28 @@ class BinanceDataFetcher(DataFetcher):
         if 'dmi_period' in params:
             # 计算DMI
             dmi_period = params['dmi_period']
-            df['TR'] = df.apply(lambda x: max(x['high'] - x['low'], 
-                                             abs(x['high'] - x['close'].shift(1)), 
-                                             abs(x['low'] - x['close'].shift(1))), axis=1)
-            
-            df['+DM'] = df.apply(lambda x: x['high'] - x['high'].shift(1) if (x['high'] - x['high'].shift(1) > x['low'].shift(1) - x['low'] and x['high'] - x['high'].shift(1) > 0) else 0, axis=1)
-            df['-DM'] = df.apply(lambda x: x['low'].shift(1) - x['low'] if (x['low'].shift(1) - x['low'] > x['high'] - x['high'].shift(1) and x['low'].shift(1) - x['low'] > 0) else 0, axis=1)
-            
+            # 1. 计算前一天的收盘价（在方法开头添加）
+            df['prev_close'] = df['close'].shift(1)
+            df['prev_high'] = df['high'].shift(1)
+            df['prev_low'] = df['low'].shift(1)
+            df['high_diff'] = df['high'] - df['prev_high']
+            df['low_diff'] = df['prev_low'] - df['low']
+            # 2. 计算TR的三个组成部分（使用向量运算，替代原来的apply+lambda）
+            df['TR1'] = df['high'] - df['low']
+            df['TR2'] = abs(df['high'] - df['prev_close'])
+            df['TR3'] = abs(df['low'] - df['prev_close'])
+
+            # 3. 取最大值得到TR
+            df['TR'] = df[['TR1', 'TR2', 'TR3']].max(axis=1)
+
+            # 3. 计算+DM：如果high_diff > low_diff 且 high_diff > 0，则为high_diff，否则为0
+            df['+DM'] = df.apply(
+                lambda x: x['high_diff'] if (x['high_diff'] > x['low_diff'] and x['high_diff'] > 0) else 0, axis=1)
+
+            # 4. 计算-DM：如果low_diff > high_diff 且 low_diff > 0，则为low_diff，否则为0
+            df['-DM'] = df.apply(
+                lambda x: x['low_diff'] if (x['low_diff'] > x['high_diff'] and x['low_diff'] > 0) else 0, axis=1)
+
             def calculate_smma(series, period):
                 smma = series.rolling(window=period).mean().iloc[period-1]
                 result = [0] * len(series)

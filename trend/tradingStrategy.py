@@ -264,44 +264,52 @@ class TradingStrategy(bt.Strategy):
         self.order = None
 
     def notify_trade(self, trade):
-        """交易完成通知"""
         if not trade.isclosed:
             return
 
-        # 获取交易详情（使用Trade对象的正确属性）
-        trade_size = abs(trade.size)  # 获取交易数量（取绝对值，因为卖出时size为负数）
-        gross_profit = trade.pnl
-        net_profit = trade.pnlcomm
-        commission = trade.commission
-
-        # 尝试获取平均买入和卖出价格
-        try:
-            # 通过history获取详细交易记录
-            entry_price = trade.history[0].event.price  # 买入价格
-            exit_price = trade.history[-1].event.price  # 卖出价格
-        except (IndexError, AttributeError):
-            # 如果无法获取详细价格，使用平均价格
+        # 正确获取交易价格
+        if hasattr(trade, 'history') and len(trade.history) > 0:
+            # 从交易历史中获取实际的买入价和卖出价
+            entry_price = trade.history[0].event.price
+            exit_price = trade.history[-1].event.price
+        elif hasattr(trade, 'executed'):
+            # 如果没有交易历史，尝试从executed属性获取价格
+            entry_price = trade.executed.price
+            exit_price = trade.executed.price
+        else:
+            # 最后的备选方案
             entry_price = trade.price
             exit_price = trade.price
 
-        # 计算收益率
-        if entry_price > 0 and trade_size > 0:
-            profit_percentage = (net_profit / (entry_price * trade_size)) * 100
+        # 正确计算交易数量
+        if hasattr(trade, 'executed') and hasattr(trade.executed, 'size'):
+            trade_size = abs(trade.executed.size)
+        elif hasattr(trade, 'size'):
+            trade_size = abs(trade.size)
         else:
-            profit_percentage = 0
+            trade_size = 0.0
 
-        # 确定交易结果类型
-        if net_profit > 0:
+        # 正确判断交易结果
+        if exit_price > entry_price:
             result_type = "盈利"
-            result_color = "✅"
+            profit = (exit_price - entry_price) * trade_size
+            result_color = "✓"
         else:
             result_type = "亏损"
-            result_color = "❌"
+            profit = (exit_price - entry_price) * trade_size
+            result_color = "✗"
 
-        # 输出详细交易日志
-        self.log(f'{result_color} 交易完成 | {result_type} | 数量: {trade_size:.4f} | 买入价: {entry_price:.2f} | 卖出价: {exit_price:.2f}')
-        self.log(f'        毛利润: {gross_profit:.2f} | 手续费: {commission:.2f} | 净利润: {net_profit:.2f}')
-        self.log(f'        收益率: {profit_percentage:.2f}%')
+        # 完善的交易完成日志
+        self.log(
+            f'{result_color} 交易完成 | {result_type} | 数量: {trade_size:.4f} | 买入价: {entry_price:.2f} | 卖出价: {exit_price:.2f}')
+
+        # 计算净利润（考虑手续费）
+        commission = trade.commission if hasattr(trade, 'commission') else 0.0
+        net_profit = profit - commission
+
+        self.log(f'        毛利润: {profit:.2f} | 手续费: {commission:.2f} | 净利润: {net_profit:.2f}')
+        if entry_price > 0:
+            self.log(f'        收益率: {((exit_price - entry_price) / entry_price * 100):.2f}%')
 
     def validate_buy_signal(self, trend_type, stoch_rsi_k, stoch_rsi_d, stoch_rsi_k_prev, stoch_rsi_d_prev):
         """优化后的买入信号验证逻辑 - 结合日线趋势"""
@@ -505,7 +513,9 @@ class TradingStrategy(bt.Strategy):
 
         # 打印调试信息
         self.log(f'日线趋势: {self.trend_names.get(trend_type, "未知")}')
-        self.log(f'{self.params.time_period} Stoch RSI: K={stoch_rsi_k:.2f}, D={stoch_rsi_d:.2f}')
+        # 显示完整的周期信息
+        self.log(
+            f'{self.params.time_period} Stoch RSI: K={stoch_rsi_k:.2f}, D={stoch_rsi_d:.2f} rsi_period={self.stoch_rsi.params.period}, stoch_period={self.stoch_rsi.params.stoch_period}')
         self.log(f'{self.params.time_period} 双均线: 快MA={self.fast_ma[0]:.2f}, 慢MA={self.slow_ma[0]:.2f}')
 
         # 检查是否有仓位
