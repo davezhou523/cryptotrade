@@ -14,7 +14,8 @@ class TradingStrategy(bt.Strategy):
     params = (
         # 时间周期参数
         ('time_period', '1h'),
-
+        ('max_daily_loss', 0.02),  # 每日最大亏损2%
+        ('max_position_size', 0.1),  # 最大仓位10%
         # 新增：价格波动过滤参数
         ('price_fluctuation_threshold', STRATEGY_PARAMS['price_fluctuation_threshold_default']),
         ('price_fluctuation_threshold_by_period', STRATEGY_PARAMS['price_fluctuation_threshold_by_period']),
@@ -58,6 +59,8 @@ class TradingStrategy(bt.Strategy):
     def __init__(self):
         # 初始化数据引用
         # datas[0]: 指定时间周期数据（用于判断买卖点）
+        self.daily_profit = 0
+        self.stop_trading_today = None
         self.data_close = self.datas[0].close
         self.data_high = self.datas[0].high
         self.data_low = self.datas[0].low
@@ -299,6 +302,7 @@ class TradingStrategy(bt.Strategy):
             profit = (exit_price - entry_price) * trade_size
             result_color = "✗"
 
+
         # 完善的交易完成日志
         self.log(
             f'{result_color} 交易完成 | {result_type} | 数量: {trade_size:.4f} | 买入价: {entry_price:.2f} | 卖出价: {exit_price:.2f}')
@@ -310,6 +314,18 @@ class TradingStrategy(bt.Strategy):
         self.log(f'        毛利润: {profit:.2f} | 手续费: {commission:.2f} | 净利润: {net_profit:.2f}')
         if entry_price > 0:
             self.log(f'        收益率: {((exit_price - entry_price) / entry_price * 100):.2f}%')
+        # 计算每日亏损
+        current_date = self.data.datetime.date(0)
+        if self.last_trade_date != current_date:
+            self.daily_profit = 0
+            self.last_trade_date = current_date
+
+        self.daily_profit += net_profit
+
+        # 检查每日最大亏损
+        if self.daily_profit < -self.params.max_daily_loss * self.broker.startingcash:
+            self.log(f'每日亏损达到 {self.params.max_daily_loss * 100}% 限制，暂停当日交易')
+            self.stop_trading_today = True
 
     def validate_buy_signal(self, trend_type, stoch_rsi_k, stoch_rsi_d, stoch_rsi_k_prev, stoch_rsi_d_prev):
         """优化后的买入信号验证逻辑 - 结合日线趋势"""
@@ -317,10 +333,18 @@ class TradingStrategy(bt.Strategy):
         valid_conditions = 0
         total_conditions = 8  # 增加到8个条件
 
+
         # 1. Stoch RSI金叉+超卖验证（核心条件）
         stoch_rsi_cross = (stoch_rsi_k > stoch_rsi_d) and (stoch_rsi_k_prev <= stoch_rsi_d_prev)
         stoch_rsi_oversold = stoch_rsi_k < self.params.oversold
         stoch_rsi_buy = stoch_rsi_cross and stoch_rsi_oversold
+        # 新增：在单边下跌趋势中提高信号要求
+        if trend_type == -1:
+            # 下跌趋势中只在极端超卖且有明显反转信号时买入
+            stoch_rsi_oversold = stoch_rsi_k < self.params.oversold * 0.5
+            # 增加价格反转确认
+            price_reversal = self.data_close[0] > self.data_close[-1] and self.data_low[0] < self.data_low[-1]
+            stoch_rsi_buy = stoch_rsi_cross and stoch_rsi_oversold and price_reversal
         validation_results.append(f"Stoch RSI金叉+超卖: {'✅' if stoch_rsi_buy else '❌'}")
         if stoch_rsi_buy:
             valid_conditions += 1
