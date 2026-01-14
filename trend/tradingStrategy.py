@@ -3,6 +3,7 @@ from config import STRATEGY_PARAMS
 from trend.ema import CustomEMA
 from trend.stochasticRSI import StochasticRSI
 from trend.trend import TrendDetector
+from trend.ml_signal_filter import MLSignalFilter  # 导入新创建的机器学习过滤模块
 
 class TradingStrategy(bt.Strategy):
     """
@@ -54,6 +55,10 @@ class TradingStrategy(bt.Strategy):
         ('max_trades_per_day', STRATEGY_PARAMS['max_trades_per_day']),
 
         ('printlog', STRATEGY_PARAMS['printlog']),
+        
+        # 新增：机器学习过滤参数
+        ('use_ml_filter', True),  # 是否使用机器学习过滤
+        ('ml_model_path', 'ml_signal_filter_model.pkl'),  # 机器学习模型路径
     )
 
     def __init__(self):
@@ -142,6 +147,12 @@ class TradingStrategy(bt.Strategy):
         self.trade_count = 0
         self.daily_trade_count = 0
         self.last_trade_date = None
+        
+        # 新增：初始化机器学习信号过滤器
+        self.ml_filter = None
+        if self.params.use_ml_filter:
+            self.ml_filter = MLSignalFilter(self.params.ml_model_path)
+            self.log(f"机器学习信号过滤器已初始化，模型路径: {self.params.ml_model_path}")
 
 
     # 在tradingStrategy.py中修改log方法
@@ -401,11 +412,17 @@ class TradingStrategy(bt.Strategy):
         required = thresholds.get(trend_type, 5)
 
         is_valid = stoch_rsi_cross and (valid_conditions >= required)
+        # 新增：使用机器学习过滤信号
+        if is_valid and self.ml_filter:
+            ml_valid, ml_probability = self.ml_filter.filter_signal(self, 'buy')
+            validation_results.append(f"机器学习信号过滤: {'✅' if ml_valid else '❌'} (概率: {ml_probability:.2f})")
+            is_valid = ml_valid
 
         # 记录信号强度
         self.signal_strength = valid_conditions / total_conditions
 
-        validation_results.append(f"验证结果: {valid_conditions}/{total_conditions} 满足条件 {'✅' if is_valid else '❌'}")
+        validation_results.append(
+            f"验证结果: {valid_conditions}/{total_conditions} 满足条件 {'✅' if is_valid else '❌'}")
         validation_results.append(f"信号强度: {self.signal_strength:.2f}")
 
         return is_valid, validation_results
@@ -483,7 +500,14 @@ class TradingStrategy(bt.Strategy):
         is_valid = (stoch_rsi_cross and stoch_rsi_overbought and (valid_conditions >= required)) or \
                    (atr_spike and self.position)
 
-        validation_results.append(f"验证结果: {valid_conditions}/{total_conditions} 满足条件 {'✅' if is_valid else '❌'}")
+        # 新增：使用机器学习过滤信号
+        if is_valid and self.ml_filter:
+            ml_valid, ml_probability = self.ml_filter.filter_signal(self, 'sell')
+            validation_results.append(f"机器学习信号过滤: {'✅' if ml_valid else '❌'} (概率: {ml_probability:.2f})")
+            is_valid = ml_valid
+
+        validation_results.append(
+            f"验证结果: {valid_conditions}/{total_conditions} 满足条件 {'✅' if is_valid else '❌'}")
 
         return is_valid, validation_results
 

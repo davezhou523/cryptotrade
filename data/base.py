@@ -4,6 +4,9 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
+import os
+import pandas as pd
+import backtrader as bt
 
 
 class DataFetcher(ABC):
@@ -31,3 +34,65 @@ class DataFetcher(ABC):
         :return: 时间间隔列表
         """
         pass
+
+
+def get_1h_data(symbol: str) -> bt.feeds.PandasData:
+    """
+    获取1小时K线数据
+    :param symbol: 交易对（如ETH、BTC）
+    :return: Backtrader数据对象
+    """
+    # 构造文件路径
+    data_dir = os.path.join(os.path.dirname(__file__), symbol.upper())
+    file_path = os.path.join(data_dir, f"{symbol.lower()}usdt_1h_20250101_20251222.csv")
+    
+    # 读取CSV文件
+    df = pd.read_csv(file_path)
+    
+    # 转换时间列
+    df['datetime'] = pd.to_datetime(df['datetime'])
+    
+    # 创建Backtrader数据对象
+    data = bt.feeds.PandasData(
+        dataname=df,
+        datetime='datetime',
+        open='open',
+        high='high',
+        low='low',
+        close='close',
+        volume='volume',
+        openinterest=-1
+    )
+    
+    return data
+
+
+def get_daily_data(symbol: str) -> bt.feeds.PandasData:
+    """
+    获取日K线数据
+    :param symbol: 交易对（如ETH、BTC）
+    :return: Backtrader数据对象
+    """
+    # 构造文件路径
+    data_dir = os.path.join(os.path.dirname(__file__), symbol.upper())
+    file_path = os.path.join(data_dir, f"{symbol.lower()}usdt_1d_20250101_20251222.csv")
+    
+    # 读取CSV文件
+    df = pd.read_csv(file_path)
+    
+    # 转换时间列
+    df['datetime'] = pd.to_datetime(df['datetime'])
+    
+    # 创建Backtrader数据对象
+    data = bt.feeds.PandasData(
+        dataname=df,
+        datetime='datetime',
+        open='open',
+        high='high',
+        low='low',
+        close='close',
+        volume='volume',
+        openinterest=-1
+    )
+    
+    return data
