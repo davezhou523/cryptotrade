@@ -7,47 +7,8 @@ from trend.tradingStrategy import TradingStrategy
 import multiprocessing
 from itertools import product
 from data.base import get_1h_data, get_daily_data
-# Binance API配置
-API_KEY = "34Y19F0ilIFbUlb0z3JbBZG99B7Qx42CKVMs35G69P6qMhngGgtzu1VadUmue4Z6"
-API_SECRET = "0dGiAwz9qRCmarEFA4HehoYwdJOA5O4rdSOop9vD2hmV8zrrFPuSu31VdjbHFzZp"
 
-# def get_1h_data(asset):
-#     """
-#     获取1小时级别数据
-#     """
-#     return bt.feeds.GenericCSVData(
-#         dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'BTC'}usdt_1h_20250101_20251222.csv",
-#         datetime=0,
-#         open=1,
-#         high=2,
-#         low=3,
-#         close=4,
-#         volume=5,
-#         openinterest=-1,
-#         dtformat='%Y-%m-%d %H:%M:%S',
-#         timeframe=bt.TimeFrame.Minutes,
-#         compression=60,
-#         headers=True
-#     )
-#
-# def get_daily_data(asset):
-#     """
-#     获取日线级别数据
-#     """
-#     return bt.feeds.GenericCSVData(
-#         dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'BTC'}usdt_1d_20250101_20251222.csv",
-#         datetime=0,
-#         open=1,
-#         high=2,
-#         low=3,
-#         close=4,
-#         volume=5,
-#         openinterest=-1,
-#         dtformat='%Y-%m-%d %H:%M:%S',  # 修正日期时间格式，包含时间部分
-#         timeframe=bt.TimeFrame.Days,
-#         compression=1,
-#         headers=True
-#     )
+
 
 def run_single_strategy(params):
     """
