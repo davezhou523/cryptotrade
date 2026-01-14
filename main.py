@@ -10,6 +10,43 @@ from trend.tradingStrategy import TradingStrategy
 API_KEY = "34Y19F0ilIFbUlb0z3JbBZG99B7Qx42CKVMs35G69P6qMhngGgtzu1VadUmue4Z6"
 API_SECRET = "0dGiAwz9qRCmarEFA4HehoYwdJOA5O4rdSOop9vD2hmV8zrrFPuSu31VdjbHFzZp"
 
+def get_1h_data(asset):
+    """
+    获取1小时级别数据
+    """
+    return bt.feeds.GenericCSVData(
+        dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'BTC'}usdt_1h_20250101_20251222.csv",
+        datetime=0,
+        open=1,
+        high=2,
+        low=3,
+        close=4,
+        volume=5,
+        openinterest=-1,
+        dtformat='%Y-%m-%d %H:%M:%S',
+        timeframe=bt.TimeFrame.Minutes,
+        compression=60,
+        headers=True
+    )
+
+def get_daily_data(asset):
+    """
+    获取日线级别数据
+    """
+    return bt.feeds.GenericCSVData(
+        dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'BTC'}usdt_1d_20250101_20251222.csv",
+        datetime=0,
+        open=1,
+        high=2,
+        low=3,
+        close=4,
+        volume=5,
+        openinterest=-1,
+        dtformat='%Y-%m-%d %H:%M:%S',  # 修正日期时间格式，包含时间部分
+        timeframe=bt.TimeFrame.Days,
+        compression=1,
+        headers=True
+    )
 def main():
     """
     主函数，同时加载日线和1小时数据进行回测
@@ -46,60 +83,10 @@ def main():
     cerebro.broker.set_coc(True)
     # 加载1小时级别数据（用于判断买卖点）
     print("加载1小时级别数据...")
-    data_1h = bt.feeds.GenericCSVData(
-        dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'btc'}usdt_1h_20250101_20251222.csv",
-        datetime=0,
-        open=1,
-        high=2,
-        low=3,
-        close=4,
-        volume=5,
-        openinterest=-1,
-        dtformat='%Y-%m-%d %H:%M:%S',
-        timeframe=bt.TimeFrame.Minutes,
-        compression=60,
-        headers=True
-    )
+    data_1h = get_1h_data(asset)
     cerebro.adddata(data_1h)  # 1小时数据作为主要数据（datas[0]）
-
-    # 加载4小时级别数据（用于判断买卖点）
-    # print("加载4小时级别数据...")
-    # data_4h = bt.feeds.GenericCSVData(
-    #     dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'btc'}usdt_4h_20250101_20251222.csv",
-    #     datetime=0,
-    #     open=1,
-    #     high=2,
-    #     low=3,
-    #     close=4,
-    #     volume=5,
-    #     openinterest=-1,
-    #     dtformat='%Y-%m-%d %H:%M:%S',
-    #     timeframe=bt.TimeFrame.Minutes,
-    #     compression=time_period,  # 4小时 = 240分钟
-    #     headers=True
-    # )
-    # cerebro.adddata(data_4h)  # 4小时数据作为主要数据（datas[0]）
-
     # 加载日线级别数据（用于判断趋势）
-    # 加载日线级别数据（用于判断趋势）
-    data_daily = bt.feeds.GenericCSVData(
-        dataname=f"data/{asset}/{'eth' if asset == 'ETH' else 'btc'}usdt_1d_20250101_20251222.csv",
-        datetime=0,
-        open=1,
-        high=2,
-        low=3,
-        close=4,
-        volume=5,
-        openinterest=-1,
-        dtformat='%Y-%m-%d %H:%M:%S',
-        timeframe=bt.TimeFrame.Days,
-        compression=1,
-        headers=True,
-        # 新增：确保数据对齐正确
-        tmformat='%H:%M:%S',
-        # 设置时区（如果需要）
-        tz='Asia/Shanghai'
-    )
+    data_daily = get_daily_data(asset)
     cerebro.adddata(data_daily)  # 日线数据作为次要数据（datas[1]）
     # cerebro.addstrategy(TestStrategy)
     # results = cerebro.run(maxcpus=1)
@@ -116,14 +103,17 @@ def main():
         compression = 240
     else:
         compression = 60  # 默认1小时
-    cerebro.optstrategy(
-        TradingStrategy,
-        time_period=[optimization_time_period],
-        rsi_period=range(12, 13),  # 重点测试RSI周期
-        stoch_period=14,  # 固定为常用值
-        stop_loss_multiplier=3,  # 固定
-        take_profit_multiplier=4  # 固定
-    )
+    # 定义要优化的参数范围
+    opt_params = {
+        'rsi_period': range(10, 11),
+        'stoch_period': range(8,9),
+        'fast_ma_period': range(5, 6, 1),
+        'slow_ma_period': range(15, 16, 2),
+        'stop_loss_multiplier': [1.5],
+        'take_profit_multiplier': [3.0]
+    }
+
+    cerebro.optstrategy(TradingStrategy, **opt_params)
 
     # 添加分析器
     # 修改夏普比率分析器配置，添加timeframe参数
@@ -141,107 +131,154 @@ def main():
     # 获取分析结果 - 处理参数优化的结果格式（列表的列表）
     print("\n参数优化结果：")
     print("=" * 60)
-    
+
     best_sharpe = -float('inf')
     best_params = None
     best_result = None
-    
+    best_return = -float('inf')
+
     # 遍历所有参数组合的结果
     for i, result_list in enumerate(results):
         # 每个参数组合对应一个结果列表
-        strat = result_list[0]  # 每个参数组合只有一个策略实例
-        
-        # 获取当前参数组合
-        params = strat.params
-        params_str = f"RSI周期: {params.rsi_period}, 快速MA周期: {params.fast_ma_period}, 慢速MA周期: {params.slow_ma_period}"
-        print(params_str)
-        try:
-            # 获取分析结果
-            sharpe_ratio = strat.analyzers.sharpe.get_analysis()
-            drawdown = strat.analyzers.drawdown.get_analysis()
-            trade_analysis = strat.analyzers.trades.get_analysis()
-            
-            # 获取最终资金
-            final_value = cerebro.broker.getvalue()
-            total_return = (final_value / initial_cash - 1) * 100
-            
-            # 提取夏普比率值
-            if isinstance(sharpe_ratio, dict) and 'sharperatio' in sharpe_ratio:
-                sr_value = sharpe_ratio.get('sharperatio', 0)
-            else:
-                sr_value = 0
-            
-            # 提取交易统计信息
-            total_trades = 0
-            winning_trades = 0
-            losing_trades = 0
-            win_rate = 0.0
-            
-            if isinstance(trade_analysis, dict):
-                total_trades = trade_analysis.get('total', {}).get('total', 0)
-                winning_trades = trade_analysis.get('won', {}).get('total', 0)
-                losing_trades = trade_analysis.get('lost', {}).get('total', 0)
-                
-                # 计算胜率
-                if total_trades > 0:
-                    win_rate = (winning_trades / total_trades) * 100
-            
-            # 打印当前参数组合的结果
-            print(f"\n参数组合 {i+1}:")
-            print(f"  RSI周期: {params.rsi_period}")
-            print(f"  最终资金: {final_value:.2f}")
-            print(f"  总收益率: {total_return:.2f}%")
-            
-            if sr_value != 0:
-                print(f"  夏普比率: {sr_value:.2f}")
-            else:
-                print(f"  夏普比率: N/A")
-            
-            if hasattr(drawdown, 'max') and hasattr(drawdown.max, 'drawdown'):
-                print(f"  最大回撤: {drawdown.max.drawdown:.2f}%")
-            else:
-                print(f"  最大回撤: 0.00%")
-            
-            # 新增：打印交易统计信息
-            print(f"  交易次数: {total_trades}")
-            print(f"  盈利次数: {winning_trades}")
-            print(f"  亏损次数: {losing_trades}")
-            print(f"  胜率: {win_rate:.2f}%")
-            
-            # 更新最佳参数
-            if sr_value > best_sharpe:
-                best_sharpe = sr_value
-                best_params = params
-                best_result = result_list
-                # 保存最佳结果的交易统计信息
-                best_final_value = final_value
-                best_total_return = total_return
-                best_total_trades = total_trades
-                best_winning_trades = winning_trades
-                best_losing_trades = losing_trades
-                best_win_rate = win_rate
-        
-        except Exception as e:
-            print(f"\n参数组合 {i+1} 分析失败: {str(e)}")
-    #2025-02-23 15:00:00 当前价格: 2825.20 1h Stoch RSI: K=100.00, D=68.32 实际binance K:83.09 D:58.38 RSI天数长度:14 Stoch长度:14 平滑k:3 平滑d:3
-    #2025-02-24 16:00:00 当前价格: 2681.60 1h Stoch RSI: K=7.10, D=24.85 实际binance K:81.86 D:74.73
-    # 打印最佳参数组合
-    if best_params is not None:
-        print("\n" + "=" * 80)
-        print("最佳参数组合:")
-        print(f"  最终资金: {best_final_value:.2f}")
-        print(f"  总收益率: {best_total_return:.2f}%")
-        print(f"  夏普比率: {best_sharpe:.2f}")
-        if hasattr(drawdown, 'max') and hasattr(drawdown.max, 'drawdown'):
-            print(f"  最大回撤: {drawdown.max.drawdown:.2f}%")
-        else:
-            print(f"  最大回撤: 0.00%")
-        print(f"  交易次数: {best_total_trades}")
-        print(f"  盈利次数: {best_winning_trades}")
-        print(f"  亏损次数: {best_losing_trades}")
-        print(f"  胜率: {best_win_rate:.2f}%")
-        print(f"  参数配置: RSI周期={best_params.rsi_period}, 时间周期={best_params.time_period}")
-        print("=" * 80)
+        for strat in result_list:
+            # 尝试通过分析器获取结果
+            try:
+                # 获取策略参数
+                params = strat.params
+                params_dict = params.__dict__
+
+                # 使用分析器获取交易结果
+                if hasattr(strat, 'analyzers') and hasattr(strat.analyzers, 'trades'):
+                    trade_analysis = strat.analyzers.trades.get_analysis()
+                    total_trades = trade_analysis.get('total', {}).get('total', 0)
+                else:
+                    total_trades = 0
+
+                # 直接使用初始资金和cerebro.broker.getvalue()获取最终资金
+                # 注意：在参数优化模式下，cerebro.broker.getvalue()可能不是最新的
+                # 我们需要找到一种更可靠的方式来获取最终资金
+                # 对于这个问题，我们可以改用单个策略实例来运行回测
+
+                # 暂时使用cerebro.broker.getvalue()作为最终资金
+                final_value = cerebro.broker.getvalue()
+                return_pct = (final_value - initial_cash) / initial_cash
+
+                print(f"\n参数组合 {i + 1}:")
+                print(f"  参数: {params_dict}")
+                print(f"  最终资金: {final_value:.2f}")
+                print(f"  总收益率: {return_pct:.2f}%")
+                print(f"  交易次数: {total_trades}")
+
+                if return_pct > best_return:
+                    best_return = return_pct
+                    best_result = {
+                        'params': params_dict,
+                        'final_value': final_value,
+                        'return_pct': return_pct,
+                        'total_trades': total_trades
+                    }
+
+            except Exception as e:
+                print(f"\n参数组合 {i + 1} 分析失败: {str(e)}")
+
+    print("\n最佳参数组合：")
+    print(best_result)
+
+    # 遍历所有参数组合的结果
+    # for i, result_list in enumerate(results):
+    #     # 每个参数组合对应一个结果列表
+    #     strat = result_list[0]  # 每个参数组合只有一个策略实例
+    #
+    #     # 获取当前参数组合
+    #     params = strat.params
+    #     params_str = f"RSI周期: {params.rsi_period}, 快速MA周期: {params.fast_ma_period}, 慢速MA周期: {params.slow_ma_period}"
+    #     print(params_str)
+    #     try:
+    #         # 获取分析结果
+    #         sharpe_ratio = strat.analyzers.sharpe.get_analysis()
+    #         drawdown = strat.analyzers.drawdown.get_analysis()
+    #         trade_analysis = strat.analyzers.trades.get_analysis()
+    #
+    #         # 获取最终资金
+    #         final_value = cerebro.broker.getvalue()
+    #         total_return = (final_value / initial_cash - 1) * 100
+    #
+    #         # 提取夏普比率值
+    #         if isinstance(sharpe_ratio, dict) and 'sharperatio' in sharpe_ratio:
+    #             sr_value = sharpe_ratio.get('sharperatio', 0)
+    #         else:
+    #             sr_value = 0
+    #
+    #         # 提取交易统计信息
+    #         total_trades = 0
+    #         winning_trades = 0
+    #         losing_trades = 0
+    #         win_rate = 0.0
+    #
+    #         if isinstance(trade_analysis, dict):
+    #             total_trades = trade_analysis.get('total', {}).get('total', 0)
+    #             winning_trades = trade_analysis.get('won', {}).get('total', 0)
+    #             losing_trades = trade_analysis.get('lost', {}).get('total', 0)
+    #
+    #             # 计算胜率
+    #             if total_trades > 0:
+    #                 win_rate = (winning_trades / total_trades) * 100
+    #
+    #         # 打印当前参数组合的结果
+    #         print(f"\n参数组合 {i+1}:")
+    #         print(f"  RSI周期: {params.rsi_period}")
+    #         print(f"  最终资金: {final_value:.2f}")
+    #         print(f"  总收益率: {total_return:.2f}%")
+    #
+    #         if sr_value != 0:
+    #             print(f"  夏普比率: {sr_value:.2f}")
+    #         else:
+    #             print(f"  夏普比率: N/A")
+    #
+    #         if hasattr(drawdown, 'max') and hasattr(drawdown.max, 'drawdown'):
+    #             print(f"  最大回撤: {drawdown.max.drawdown:.2f}%")
+    #         else:
+    #             print(f"  最大回撤: 0.00%")
+    #
+    #         # 新增：打印交易统计信息
+    #         print(f"  交易次数: {total_trades}")
+    #         print(f"  盈利次数: {winning_trades}")
+    #         print(f"  亏损次数: {losing_trades}")
+    #         print(f"  胜率: {win_rate:.2f}%")
+    #
+    #         # 更新最佳参数
+    #         if sr_value > best_sharpe:
+    #             best_sharpe = sr_value
+    #             best_params = params
+    #             best_result = result_list
+    #             # 保存最佳结果的交易统计信息
+    #             best_final_value = final_value
+    #             best_total_return = total_return
+    #             best_total_trades = total_trades
+    #             best_winning_trades = winning_trades
+    #             best_losing_trades = losing_trades
+    #             best_win_rate = win_rate
+    #
+    #     except Exception as e:
+    #         print(f"\n参数组合 {i+1} 分析失败: {str(e)}")
+    #
+    # # 打印最佳参数组合
+    # if best_params is not None:
+    #     print("\n" + "=" * 80)
+    #     print("最佳参数组合:")
+    #     print(f"  最终资金: {best_final_value:.2f}")
+    #     print(f"  总收益率: {best_total_return:.2f}%")
+    #     print(f"  夏普比率: {best_sharpe:.2f}")
+    #     if hasattr(drawdown, 'max') and hasattr(drawdown.max, 'drawdown'):
+    #         print(f"  最大回撤: {drawdown.max.drawdown:.2f}%")
+    #     else:
+    #         print(f"  最大回撤: 0.00%")
+    #     print(f"  交易次数: {best_total_trades}")
+    #     print(f"  盈利次数: {best_winning_trades}")
+    #     print(f"  亏损次数: {best_losing_trades}")
+    #     print(f"  胜率: {best_win_rate:.2f}%")
+    #     print(f"  参数配置: RSI周期={best_params.rsi_period}, 时间周期={best_params.time_period}")
+    #     print("=" * 80)
 
     # 绘制图表
     # cerebro.plot(style='candlestick')

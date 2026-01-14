@@ -143,26 +143,6 @@ class TradingStrategy(bt.Strategy):
         self.daily_trade_count = 0
         self.last_trade_date = None
 
-    # 示例：在tradingStrategy.py中增强1小时信号过滤
-    def filter_1h_signal(self):
-        stoch_rsi_k = self.stoch_rsi.percK[0]
-        stoch_rsi_d = self.stoch_rsi.percD[0]
-
-        # 结合日线趋势过滤
-        if self.trend_detector_daily.lines.trend_type[0] == STRATEGY_PARAMS['bullish_trend']:
-            # 上涨趋势下，只做多不做空
-            if not (stoch_rsi_k < 30 and stoch_rsi_d < 30):
-                return False
-        elif self.trend_detector_daily.lines.trend_type[0] == STRATEGY_PARAMS['bearish_trend']:
-            # 下跌趋势下，只做空不做多
-            if not (stoch_rsi_k > 70 and stoch_rsi_d > 70):
-                return False
-
-        # 增加指标共振条件
-        if abs(self.fast_ma[0] - self.slow_ma[0]) / self.slow_ma[0] < 0.005:
-            return False  # 双均线过于接近，方向不明确
-
-        return True
 
     # 在tradingStrategy.py中修改log方法
     def log(self, txt, dt=None, doprint=False):
@@ -194,7 +174,7 @@ class TradingStrategy(bt.Strategy):
         
                 # 获取当前日线趋势
                 trend_type = self.trend_detector_daily.trend_type[0] if len(self.trend_detector_daily.trend_type) > 0 else 0
-        
+
                 # 根据趋势动态调整止损止盈倍数
                 if trend_type == 1:  # 上涨趋势
                     stop_loss_multiplier = self.params.stop_loss_multiplier * 1.5
@@ -327,6 +307,7 @@ class TradingStrategy(bt.Strategy):
             self.log(f'每日亏损达到 {self.params.max_daily_loss * 100}% 限制，暂停当日交易')
             self.stop_trading_today = True
 
+
     def validate_buy_signal(self, trend_type, stoch_rsi_k, stoch_rsi_d, stoch_rsi_k_prev, stoch_rsi_d_prev):
         """优化后的买入信号验证逻辑 - 结合日线趋势"""
         validation_results = []
@@ -396,10 +377,28 @@ class TradingStrategy(bt.Strategy):
         validation_results.append(f"价格有波动: {'✅' if price_volatility else '❌'}")
         if price_volatility:
             valid_conditions += 1
+        # 增加条件：要求价格必须站在BOLL中轨上方
+        price_above_boll_mid = self.data_close[0]  > self.boll.mid[0]
+        validation_results.append(f"价格站在BOLL中轨上方: {'✅' if price_above_boll_mid else '❌'}")
+        if price_above_boll_mid:
+            valid_conditions += 1
+        # 新增：成交量放大验证（更严格）
+        volume_confirm = (self.data_volume[0] > self.volume_ma_5[0] * 1.5) and (
+                    self.data_volume[0] > self.volume_ma_20[0] * 1.2)
+        validation_results.append(f"成交量有效放大: {'✅' if volume_confirm else '❌'}")
+        if volume_confirm:
+            valid_conditions += 1
+        # 新增：价格反转确认（下跌趋势中更重要）
+        price_reversal = False
+        if trend_type == -1 and len(self.data_close) > 2:
+            price_reversal = (self.data_close[0] > self.data_close[-1] > self.data_close[-2])
+        validation_results.append(f"价格反转确认: {'✅' if price_reversal else '❌'}")
+        if price_reversal:
+            valid_conditions += 1
 
         # 根据趋势类型设置不同的通过阈值
-        thresholds = {1: 5, 0: 4, -1: 6}  # 上涨:5, 震荡:4, 下跌:6
-        required = thresholds.get(trend_type, 4)
+        thresholds = {1: 6, 0: 5, -1: 7}  # 上涨:6, 震荡:5, 下跌:7
+        required = thresholds.get(trend_type, 5)
 
         is_valid = stoch_rsi_cross and (valid_conditions >= required)
 
@@ -470,10 +469,15 @@ class TradingStrategy(bt.Strategy):
         validation_results.append(f"ATR波动异常: {'✅' if atr_spike else '❌'}")
         if atr_spike:
             valid_conditions += 1
+        # 增加条件：价格连续两根K线跌破慢MA且幅度超过1%
+        price_below_slow_ma = (close < self.slow_ma[0] * 0.99) and (self.data_close[-1] < self.slow_ma[-1] * 0.99)
+        validation_results.append(f"价格连续跌破慢MA: {'✅' if price_below_slow_ma else '❌'}")
+        if price_below_slow_ma:
+            valid_conditions += 1
 
         # 根据趋势类型设置不同的通过阈值
-        thresholds = {1: 3, 0: 4, -1: 3}  # 上涨:3, 震荡:4, 下跌:3
-        required = thresholds.get(trend_type, 3)
+        thresholds = {1: 4, 0: 5, -1: 4}  # 提高所有趋势类型的阈值要求
+        required = thresholds.get(trend_type, 4)
 
         # 核心条件（Stoch RSI死叉）必须满足，或极端行情直接卖出
         is_valid = (stoch_rsi_cross and stoch_rsi_overbought and (valid_conditions >= required)) or \
@@ -486,12 +490,19 @@ class TradingStrategy(bt.Strategy):
     def next(self):
         # 时间窗口过滤
         current_hour = self.datas[0].datetime.datetime(0).hour
+
         if current_hour in self.avoid_hours:
             # self.log(f'当前时间 ({current_hour}:00 UTC) 处于避免交易窗口')
+            return
+        # 新增：账户总亏损控制
+        total_loss = (self.broker.startingcash - self.broker.getvalue()) / self.broker.startingcash
+        if total_loss > 0.05:  # 总亏损超过5%暂停交易
+            self.log(f"总亏损达到 {total_loss:.2%}，暂停交易以控制风险")
             return
         """主策略逻辑，每个数据点执行一次"""
         if self.order:
             return
+
         # 优化：动态价格波动过滤 - 根据时间周期调整阈值
         if len(self.data_close) > 1:
             price_change = abs(self.data_close[0] - self.data_close[-1]) / self.data_close[-1]
@@ -534,7 +545,8 @@ class TradingStrategy(bt.Strategy):
 
         # 获取日线级别的趋势类型
         trend_type = self.trend_detector_daily.trend_type[0]
-
+        # 获取ADX值
+        adx_value = self.trend_detector_daily.lines.adx[0]
         # 打印调试信息
         self.log(f'日线趋势: {self.trend_names.get(trend_type, "未知")}')
         # 显示完整的周期信息
@@ -702,6 +714,14 @@ class TradingStrategy(bt.Strategy):
 
                 # 确保交易数量为正数且合理
                 buy_size = max(0.0001, buy_size)
+                # 根据信号强度调整仓位
+                signal_strength_factor = max(0.5, min(1.5, self.signal_strength * 2))
+                buy_size *= signal_strength_factor
+
+                # 根据趋势强度调整仓位
+                trend_strength = adx_value / self.params.adx_threshold
+                position_size_factor = min(1.5, max(0.5, trend_strength))
+                buy_size *= position_size_factor
 
                 # 最后检查：确保总投资金额不超过可用现金的90%
                 total_investment = buy_size * self.data_close[0]

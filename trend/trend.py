@@ -11,7 +11,7 @@ class TrendDetector(bt.Indicator):
     - 单边上涨趋势
     - 单边下跌趋势
     """
-    lines = ('trend_type',)
+    lines = ('trend_type', 'adx')  # 添加adx线条
     params = (
         ('boll_period', STRATEGY_PARAMS['boll_period']),
         ('boll_dev', STRATEGY_PARAMS['boll_dev']),
@@ -64,7 +64,8 @@ class TrendDetector(bt.Indicator):
         adx_value = self.dmi.adx[0]
         plus_di_value = self.dmi.plus_di[0]
         minus_di_value = self.dmi.minus_di[0]
-        
+        # 将ADX值设置到线条中
+        self.lines.adx[0] = adx_value
         # BOLL指标数据
         close = self.data.close[0]
         boll_top = self.boll.lines.top[0]
@@ -174,7 +175,20 @@ class TrendDetector(bt.Indicator):
                 self.lines.trend_type[0] = self.params.bearish_trend
             else:
                 self.lines.trend_type[0] = self.params.sideways_trend
-        
+        # 改进趋势持续性要求：使用移动窗口统计趋势一致性
+        current_trend = self.lines.trend_type[0]  # 获取当前周期趋势
+
+        # 检查最近N个周期的趋势一致性
+        trend_consistency = 0
+        required_consistency = 2  # 需要至少连续2个周期趋势一致
+
+        for i in range(1, required_consistency + 1):
+            if len(self.lines.trend_type) > i and self.lines.trend_type[-i] == current_trend:
+                trend_consistency += 1
+
+        # 只有当趋势持续足够周期才确认，否则保持震荡
+        if trend_consistency < required_consistency and current_trend != self.params.sideways_trend:
+            self.lines.trend_type[0] = self.params.sideways_trend
         # 日线级别数据输出详细日志
         if self.is_daily:
             # 获取当前日期
