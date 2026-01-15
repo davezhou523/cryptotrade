@@ -179,7 +179,7 @@ class TradingStrategy(bt.Strategy):
         if order.status in [order.Completed]:
             if order.isbuy():
                 # 买入订单完成（做多开仓）
-                self.log(f'买入执行 | 价格: {order.executed.price:.2f} | 数量: {order.executed.size:.4f}')
+                self.log(f'买入执行 | 成交价格: {order.executed.price:.2f} | 数量: {order.executed.size:.4f}')
                 self.entry_price = order.executed.price
                 self.entry_bar = len(self.datas[0]) - 1
         
@@ -208,7 +208,7 @@ class TradingStrategy(bt.Strategy):
             else:  # 卖出订单完成
                 # 判断是卖出平仓还是卖出开仓（做空）
                 if self.position.size < 0:  # 卖出后持仓为负，说明是做空开仓
-                    self.log(f'做空开仓 | 价格: {order.executed.price:.2f} | 数量: {abs(order.executed.size):.4f}')
+                    self.log(f'做空开仓 | 成交价格: {order.executed.price:.2f} | 数量: {abs(order.executed.size):.4f}')
                     self.entry_price = order.executed.price
                     self.entry_bar = len(self.datas[0]) - 1
         
@@ -261,59 +261,80 @@ class TradingStrategy(bt.Strategy):
         if not trade.isclosed:
             return
 
-        # 正确获取交易价格
-        if hasattr(trade, 'history') and len(trade.history) > 0:
-            # 从交易历史中获取实际的买入价和卖出价
-            entry_price = trade.history[0].event.price
-            exit_price = trade.history[-1].event.price
-        elif hasattr(trade, 'executed'):
-            # 如果没有交易历史，尝试从executed属性获取价格
-            entry_price = trade.executed.price
-            exit_price = trade.executed.price
-        else:
-            # 最后的备选方案
-            entry_price = trade.price
-            exit_price = trade.price
-
-        # 正确计算交易数量
+        # 1. 正确获取交易数量（使用trade.size或trade.executed.size）
+        trade_size = abs(trade.size)
         if hasattr(trade, 'executed') and hasattr(trade.executed, 'size'):
             trade_size = abs(trade.executed.size)
-        elif hasattr(trade, 'size'):
-            trade_size = abs(trade.size)
-        else:
-            trade_size = 0.0
-
-        # 正确判断交易结果
-        if exit_price > entry_price:
-            result_type = "盈利"
-            profit = (exit_price - entry_price) * trade_size
-            result_color = "✓"
-        else:
-            result_type = "亏损"
-            profit = (exit_price - entry_price) * trade_size
-            result_color = "✗"
-
-
-        # 完善的交易完成日志
+        
+        # 2. 正确获取买入价和卖出价
+        entry_price = None
+        exit_price = None
+        
+        # 优先从交易历史中获取
+        if hasattr(trade, 'history') and len(trade.history) > 0:
+            for h in trade.history:
+                if h.event.size > 0:  # 买入开仓
+                    entry_price = h.event.price
+                elif h.event.size < 0:  # 卖出平仓
+                    exit_price = h.event.price
+        elif hasattr(trade, 'entry_price'):
+            entry_price = trade.entry_price
+            exit_price = trade.exit_price
+        elif hasattr(trade, 'executed'):
+            # 作为最后的备选方案，使用当前价格计算
+            if trade.size > 0:  # 多头交易
+                entry_price = trade.price if hasattr(trade, 'price') else self.data_close[0]
+                exit_price = self.data_close[0]
+            else:  # 空头交易
+                entry_price = self.data_close[0]
+                exit_price = trade.price if hasattr(trade, 'price') else self.data_close[0]
+        
+        # 3. 确保价格有效
+        if entry_price is None:
+            entry_price = self.data_close[0]
+        if exit_price is None:
+            exit_price = self.data_close[0]
+        
+        # 4. 正确判断交易结果
+        if trade.size > 0:  # 多头交易
+            if exit_price > entry_price:
+                result_type = "盈利"
+                profit = (exit_price - entry_price) * trade_size
+                result_color = "✓"
+            else:
+                result_type = "亏损"
+                profit = (exit_price - entry_price) * trade_size
+                result_color = "✗"
+        else:  # 空头交易
+            if exit_price < entry_price:
+                result_type = "盈利"
+                profit = (entry_price - exit_price) * trade_size
+                result_color = "✓"
+            else:
+                result_type = "亏损"
+                profit = (entry_price - exit_price) * trade_size
+                result_color = "✗"
+        
+        # 5. 完善的交易完成日志
         self.log(
             f'{result_color} 交易完成 | {result_type} | 数量: {trade_size:.4f} | 买入价: {entry_price:.2f} | 卖出价: {exit_price:.2f}')
-
-        # 计算净利润（考虑手续费）
+        
+        # 6. 计算净利润（考虑手续费）
         commission = trade.commission if hasattr(trade, 'commission') else 0.0
         net_profit = profit - commission
-
+        
         self.log(f'        毛利润: {profit:.2f} | 手续费: {commission:.2f} | 净利润: {net_profit:.2f}')
         if entry_price > 0:
             self.log(f'        收益率: {((exit_price - entry_price) / entry_price * 100):.2f}%')
-        # 计算每日亏损
+        
+        # 7. 检查每日最大亏损（保持原有逻辑）
         current_date = self.data.datetime.date(0)
         if self.last_trade_date != current_date:
             self.daily_profit = 0
             self.last_trade_date = current_date
-
+        
         self.daily_profit += net_profit
-
-        # 检查每日最大亏损
+        
         if self.daily_profit < -self.params.max_daily_loss * self.broker.startingcash:
             self.log(f'每日亏损达到 {self.params.max_daily_loss * 100}% 限制，暂停当日交易')
             self.stop_trading_today = True
@@ -576,14 +597,14 @@ class TradingStrategy(bt.Strategy):
         # 显示完整的周期信息
         self.log(
             f'{self.params.time_period} Stoch RSI: K={stoch_rsi_k:.2f}, D={stoch_rsi_d:.2f} rsi_period={self.stoch_rsi.params.period}, stoch_period={self.stoch_rsi.params.stoch_period}')
-        self.log(f'{self.params.time_period} 双均线: 快MA={self.fast_ma[0]:.2f}, 慢MA={self.slow_ma[0]:.2f}')
+        self.log(
+            f'{self.params.time_period} 双均线: 快MA({self.params.fast_ma_period}): {self.fast_ma[0]:.2f}, 慢MA({self.params.slow_ma_period}): {self.slow_ma[0]:.2f}')
 
         # 检查是否有仓位
         if self.position:
             # 确保entry_bar已初始化
             if self.entry_bar is None:
                 self.entry_bar = len(self) - 1  # 假设上一个bar开的仓
-
             # 检查是否达到最小持仓时间
             if len(self.datas[0]) - self.entry_bar < self.params.min_hold_periods:
                 self.log(f'未达到最小持仓时间 {self.params.min_hold_periods}，继续持有')
