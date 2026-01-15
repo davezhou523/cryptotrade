@@ -55,7 +55,7 @@ class TradingStrategy(bt.Strategy):
         ('max_trades_per_day', STRATEGY_PARAMS['max_trades_per_day']),
 
         ('printlog', STRATEGY_PARAMS['printlog']),
-        
+
         # 新增：机器学习过滤参数
         ('use_ml_filter', True),  # 是否使用机器学习过滤
         ('ml_model_path', 'ml_signal_filter_model.pkl'),  # 机器学习模型路径
@@ -147,13 +147,15 @@ class TradingStrategy(bt.Strategy):
         self.trade_count = 0
         self.daily_trade_count = 0
         self.last_trade_date = None
-        
+
         # 新增：初始化机器学习信号过滤器
         self.ml_filter = None
         if self.params.use_ml_filter:
             self.ml_filter = MLSignalFilter(self.params.ml_model_path)
             self.log(f"机器学习信号过滤器已初始化，模型路径: {self.params.ml_model_path}")
 
+        # 新增：交易信息跟踪
+        self.current_trades = {}
 
     # 在tradingStrategy.py中修改log方法
     def log(self, txt, dt=None, doprint=False):
@@ -161,7 +163,7 @@ class TradingStrategy(bt.Strategy):
         if doprint or self.params.printlog:
             dt = dt or self.datas[0].datetime.datetime(0)
             log_string = f'{dt.strftime("%Y-%m-%d %H:%M:%S")} 当前价格: {self.data_close[0]:.2f} {txt}'
-            
+
             # 确保使用UTF-8编码输出
             try:
                 print(log_string)
@@ -175,14 +177,14 @@ class TradingStrategy(bt.Strategy):
         """订单状态通知 - 修复做空止盈止损设置"""
         if order.status in [order.Submitted, order.Accepted]:
             return
-        
+
         if order.status in [order.Completed]:
             if order.isbuy():
                 # 买入订单完成（做多开仓）
-                self.log(f'买入执行 | 成交价格: {order.executed.price:.2f} | 数量: {order.executed.size:.4f}')
+                self.log(f'买入执行 | 价格: {order.executed.price:.2f} | 数量: {order.executed.size:.4f}')
                 self.entry_price = order.executed.price
                 self.entry_bar = len(self.datas[0]) - 1
-        
+
                 # 获取当前日线趋势
                 trend_type = self.trend_detector_daily.trend_type[0] if len(self.trend_detector_daily.trend_type) > 0 else 0
 
@@ -196,25 +198,34 @@ class TradingStrategy(bt.Strategy):
                 else:  # 下跌趋势
                     stop_loss_multiplier = self.params.stop_loss_multiplier * 0.8
                     take_profit_multiplier = self.params.take_profit_multiplier * 1.5
-        
+
                 # 设置做多止盈止损
                 atr_value = self.atr[0]
                 self.stop_loss = self.entry_price - stop_loss_multiplier * atr_value
                 self.take_profit = self.entry_price + take_profit_multiplier * atr_value
                 self.trailing_stop = self.entry_price - stop_loss_multiplier * atr_value
-        
+
                 self.log(f'做多止损设置: {self.stop_loss:.2f} | 止盈设置: {self.take_profit:.2f}')
-                
+
+                # 记录买入交易信息
+                trade_id = order.ref
+                self.current_trades[trade_id] = {
+                    'entry_price': order.executed.price,
+                    'entry_size': order.executed.size,
+                    'exit_price': None,
+                    'exit_size': None,
+                    'commission': order.executed.comm  # 记录开仓手续费
+                }
             else:  # 卖出订单完成
                 # 判断是卖出平仓还是卖出开仓（做空）
                 if self.position.size < 0:  # 卖出后持仓为负，说明是做空开仓
-                    self.log(f'做空开仓 | 成交价格: {order.executed.price:.2f} | 数量: {abs(order.executed.size):.4f}')
+                    self.log(f'做空开仓 | 价格: {order.executed.price:.2f} | 数量: {abs(order.executed.size):.4f}')
                     self.entry_price = order.executed.price
                     self.entry_bar = len(self.datas[0]) - 1
-        
+
                     # 获取当前日线趋势
                     trend_type = self.trend_detector_daily.trend_type[0] if len(self.trend_detector_daily.trend_type) > 0 else 0
-        
+
                     # 根据趋势动态调整止损止盈倍数（做空场景）
                     if trend_type == -1:  # 下跌趋势
                         stop_loss_multiplier = self.params.stop_loss_multiplier * 1.5  # 给足波动空间
@@ -225,14 +236,24 @@ class TradingStrategy(bt.Strategy):
                     else:  # 上涨趋势（反弹做空）
                         stop_loss_multiplier = self.params.stop_loss_multiplier * 0.8  # 严格止损
                         take_profit_multiplier = self.params.take_profit_multiplier * 1.5  # 反弹利润
-        
+
                     # 设置做空止盈止损（逻辑与做多相反）
                     atr_value = self.atr[0]
                     self.stop_loss = self.entry_price + stop_loss_multiplier * atr_value  # 做空止损在入场价上方
                     self.take_profit = self.entry_price - take_profit_multiplier * atr_value  # 做空止盈在入场价下方
                     self.trailing_stop = self.entry_price + stop_loss_multiplier * atr_value  # 移动止损也在上方
-        
+
                     self.log(f'做空止损设置: {self.stop_loss:.2f} | 止盈设置: {self.take_profit:.2f}')
+
+                    # 记录做空开仓信息
+                    trade_id = order.ref
+                    self.current_trades[trade_id] = {
+                        'entry_price': order.executed.price,
+                        'entry_size': order.executed.size,
+                        'exit_price': None,
+                        'exit_size': None,
+                        'commission': order.executed.comm  # 记录开仓手续费
+                    }
                 else:
                     # 卖出平仓
                     self.log(f'卖出平仓 | 价格: {order.executed.price:.2f} | 数量: {abs(order.executed.size):.4f}')
@@ -241,6 +262,15 @@ class TradingStrategy(bt.Strategy):
                     self.stop_loss = None
                     self.take_profit = None
                     self.trailing_stop = None
+
+                    # 查找对应的开仓交易并记录平仓信息
+                    for trade_id in list(self.current_trades.keys()):
+                        trade_info = self.current_trades[trade_id]
+                        if trade_info['exit_price'] is None:
+                            trade_info['exit_price'] = order.executed.price
+                            trade_info['exit_size'] = order.executed.size
+                            trade_info['commission'] += order.executed.comm
+                            break
 
                 # 更新交易计数（无论开仓类型）
                 self.trade_count += 1
@@ -261,42 +291,54 @@ class TradingStrategy(bt.Strategy):
         if not trade.isclosed:
             return
 
-        # 1. 正确获取交易数量（使用trade.size或trade.executed.size）
-        trade_size = abs(trade.size)
-        if hasattr(trade, 'executed') and hasattr(trade.executed, 'size'):
-            trade_size = abs(trade.executed.size)
-        
-        # 2. 正确获取买入价和卖出价
-        entry_price = None
-        exit_price = None
-        
-        # 优先从交易历史中获取
-        if hasattr(trade, 'history') and len(trade.history) > 0:
-            for h in trade.history:
-                if h.event.size > 0:  # 买入开仓
-                    entry_price = h.event.price
-                elif h.event.size < 0:  # 卖出平仓
-                    exit_price = h.event.price
-        elif hasattr(trade, 'entry_price'):
-            entry_price = trade.entry_price
-            exit_price = trade.exit_price
-        elif hasattr(trade, 'executed'):
-            # 作为最后的备选方案，使用当前价格计算
-            if trade.size > 0:  # 多头交易
-                entry_price = trade.price if hasattr(trade, 'price') else self.data_close[0]
-                exit_price = self.data_close[0]
-            else:  # 空头交易
-                entry_price = self.data_close[0]
-                exit_price = trade.price if hasattr(trade, 'price') else self.data_close[0]
-        
-        # 3. 确保价格有效
-        if entry_price is None:
-            entry_price = self.data_close[0]
-        if exit_price is None:
-            exit_price = self.data_close[0]
-        
-        # 4. 正确判断交易结果
-        if trade.size > 0:  # 多头交易
+        # 查找完整的交易信息
+        trade_info = None
+        # 对于已平仓的交易，trade.size会变为0，所以需要使用记录的entry_size来判断交易类型
+        is_long = False
+        for trade_id in list(self.current_trades.keys()):
+            info = self.current_trades[trade_id]
+            if info['exit_price'] is not None:
+                trade_info = info
+                del self.current_trades[trade_id]
+                break
+        if trade_info:
+            # 从记录的交易信息中获取实际数据
+            entry_price = trade_info['entry_price']
+            exit_price = trade_info['exit_price']
+            trade_size = abs(trade_info['entry_size'])
+            commission = trade_info['commission']
+            # 使用记录的entry_size判断交易类型
+            is_long = trade_info['entry_size'] > 0
+        else:
+            # 备选方案：使用Backtrader内置属性
+            trade_size = abs(trade.size)
+            if trade_size > 0:
+                # 使用pnl计算实际价格
+                if trade.pnl > 0:
+                    entry_price = trade.price - trade.pnl / trade_size
+                    exit_price = trade.price
+                else:
+                    entry_price = trade.price
+                    exit_price = trade.price + trade.pnl / trade_size
+            else:
+                entry_price = trade.price
+                exit_price = trade.price
+            # 备选方案：根据pnl的实际值判断交易类型
+            # 如果exit_price > entry_price，应该是盈利的做多交易
+            # 如果exit_price < entry_price，应该是盈利的做空交易
+            is_long = exit_price > entry_price
+
+            # 计算手续费
+            if hasattr(trade, 'commission'):
+                commission = trade.commission
+            elif hasattr(trade, 'pnlcomm'):
+                commission = trade.pnlcomm - trade.pnl
+            else:
+                commission = 0
+
+        # 正确判断交易结果
+
+        if is_long:  # 做多交易
             if exit_price > entry_price:
                 result_type = "盈利"
                 profit = (exit_price - entry_price) * trade_size
@@ -305,7 +347,7 @@ class TradingStrategy(bt.Strategy):
                 result_type = "亏损"
                 profit = (exit_price - entry_price) * trade_size
                 result_color = "✗"
-        else:  # 空头交易
+        else:  # 做空交易
             if exit_price < entry_price:
                 result_type = "盈利"
                 profit = (entry_price - exit_price) * trade_size
@@ -314,27 +356,30 @@ class TradingStrategy(bt.Strategy):
                 result_type = "亏损"
                 profit = (entry_price - exit_price) * trade_size
                 result_color = "✗"
-        
-        # 5. 完善的交易完成日志
+
+        # 完善的交易完成日志
         self.log(
             f'{result_color} 交易完成 | {result_type} | 数量: {trade_size:.4f} | 买入价: {entry_price:.2f} | 卖出价: {exit_price:.2f}')
-        
-        # 6. 计算净利润（考虑手续费）
-        commission = trade.commission if hasattr(trade, 'commission') else 0.0
+
+        # 计算净利润（考虑手续费）
         net_profit = profit - commission
-        
+
         self.log(f'        毛利润: {profit:.2f} | 手续费: {commission:.2f} | 净利润: {net_profit:.2f}')
         if entry_price > 0:
-            self.log(f'        收益率: {((exit_price - entry_price) / entry_price * 100):.2f}%')
-        
-        # 7. 检查每日最大亏损（保持原有逻辑）
+            if trade.size > 0:  # 做多交易
+                self.log(f'        收益率: {((exit_price - entry_price) / entry_price * 100):.2f}%')
+            else:  # 做空交易
+                self.log(f'        收益率: {((entry_price - exit_price) / entry_price * 100):.2f}%')
+
+        # 计算每日亏损
         current_date = self.data.datetime.date(0)
         if self.last_trade_date != current_date:
             self.daily_profit = 0
             self.last_trade_date = current_date
-        
+
         self.daily_profit += net_profit
-        
+
+        # 检查每日最大亏损
         if self.daily_profit < -self.params.max_daily_loss * self.broker.startingcash:
             self.log(f'每日亏损达到 {self.params.max_daily_loss * 100}% 限制，暂停当日交易')
             self.stop_trading_today = True
@@ -512,7 +557,6 @@ class TradingStrategy(bt.Strategy):
         validation_results.append(f"价格连续跌破慢MA: {'✅' if price_below_slow_ma else '❌'}")
         if price_below_slow_ma:
             valid_conditions += 1
-
         # 根据趋势类型设置不同的通过阈值
         thresholds = {1: 4, 0: 5, -1: 4}  # 提高所有趋势类型的阈值要求
         required = thresholds.get(trend_type, 4)

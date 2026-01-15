@@ -25,7 +25,7 @@ def run_single_strategy(params):
     cerebro.broker.set_shortcash(True)
     
     # 设置交易手续费和滑点
-    cerebro.broker.setcommission(commission=0.001, margin=1.0)
+    cerebro.broker.setcommission(commission=0.001, margin=1.0, stocklike=True)
     cerebro.broker.set_slippage_perc(0.001)
     cerebro.broker.set_slippage_fixed(0.01)
     cerebro.broker.set_coc(True)
@@ -37,13 +37,14 @@ def run_single_strategy(params):
     cerebro.adddata(data_daily)
     
     # 添加策略
-    cerebro.addstrategy(TradingStrategy, 
+    cerebro.addstrategy(TradingStrategy,
                        rsi_period=rsi_period,
                        stoch_period=stoch_period,
                        fast_ma_period=fast_ma_period,
                        slow_ma_period=slow_ma_period,
                        stop_loss_multiplier=stop_loss_multiplier,
-                       take_profit_multiplier=take_profit_multiplier)
+                       take_profit_multiplier=take_profit_multiplier
+                        )
     
     # 添加分析器
     compression = 60  # 1小时
