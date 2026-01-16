@@ -369,7 +369,7 @@ class TradingStrategy(bt.Strategy):
 
         self.log(f'        毛利润: {profit:.2f} | 手续费: {commission:.4f} | 净利润: {net_profit:.2f}')
         if entry_price > 0:
-            if trade.size > 0:  # 做多交易
+            if is_long:  # 做多交易
                 self.log(f'        收益率: {((exit_price - entry_price) / entry_price * 100):.2f}%')
             else:  # 做空交易
                 self.log(f'        收益率: {((entry_price - exit_price) / entry_price * 100):.2f}%')
