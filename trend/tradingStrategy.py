@@ -181,7 +181,9 @@ class TradingStrategy(bt.Strategy):
         if order.status in [order.Completed]:
             if order.isbuy():
                 # 买入订单完成（做多开仓）
-                self.log(f'买入执行 | 价格: {order.executed.price:.2f} | 数量: {order.executed.size:.4f}')
+                self.log(
+                    f'买入执行 | 价格: {order.executed.price:.2f} | 数量: {order.executed.size:.4f} | 手续费: {order.executed.comm:.4f}')
+
                 self.entry_price = order.executed.price
                 self.entry_bar = len(self.datas[0]) - 1
 
@@ -256,7 +258,8 @@ class TradingStrategy(bt.Strategy):
                     }
                 else:
                     # 卖出平仓
-                    self.log(f'卖出平仓 | 价格: {order.executed.price:.2f} | 数量: {abs(order.executed.size):.4f}')
+                    self.log(
+                        f'卖出平仓 | 价格: {order.executed.price:.2f} | 数量: {abs(order.executed.size):.4f} | 手续费: {order.executed.comm:.4f}')
                     self.entry_price = None
                     self.entry_bar = None
                     self.stop_loss = None
@@ -364,7 +367,7 @@ class TradingStrategy(bt.Strategy):
         # 计算净利润（考虑手续费）
         net_profit = profit - commission
 
-        self.log(f'        毛利润: {profit:.2f} | 手续费: {commission:.2f} | 净利润: {net_profit:.2f}')
+        self.log(f'        毛利润: {profit:.2f} | 手续费: {commission:.4f} | 净利润: {net_profit:.2f}')
         if entry_price > 0:
             if trade.size > 0:  # 做多交易
                 self.log(f'        收益率: {((exit_price - entry_price) / entry_price * 100):.2f}%')
@@ -822,6 +825,7 @@ class TradingStrategy(bt.Strategy):
                     return
                 self.log(f'执行买入 | 数量: {buy_size:.4f} | ATR: {atr_value:.6f} | 安全ATR: {safe_atr_value:.6f}')
                 self.order = self.buy(size=buy_size)
+
 
             # 执行做空操作
             elif short_condition:
