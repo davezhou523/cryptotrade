@@ -176,7 +176,7 @@ def main():
         print(f"\n参数组合: {result['params']}")
         print(f"  最终资金: {result['final_value']:.2f}")
         print(f"  总收益率: {result['return_pct']:.4f}")
-        print(f"  夏普比率: {result['sharpe_ratio']:.4f}")
+        print(f"  夏普比率: {result['sharpe_ratio']:.4f}" if result['sharpe_ratio'] is not None else "  夏普比率: 不可用")
         print(f"  交易次数: {result['total_trades']}")
         
         if result['return_pct'] > best_return:
@@ -188,7 +188,7 @@ def main():
         print(f"  参数: {best_result['params']}")
         print(f"  最终资金: {best_result['final_value']:.2f}")
         print(f"  总收益率: {best_result['return_pct']:.4f}")
-        print(f"  夏普比率: {best_result['sharpe_ratio']:.4f}")
+        print(f"  夏普比率: {best_result['sharpe_ratio']:.4f}" if best_result['sharpe_ratio'] is not None else "  夏普比率: 不可用")
         print(f"  交易次数: {best_result['total_trades']}")
     else:
         print("没有找到有效的参数组合")
