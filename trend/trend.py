@@ -206,10 +206,10 @@ class TrendDetector(bt.Indicator):
                 return round(num, 4)
             
             # 输出详细日志
-            # print(f"\n===== 日线趋势分析 [{current_date}] =====")
-            # print(f"  收盘价: {format_num(close)}")
-            # print(f"  DMI指标: ADX={format_num(adx_value)}, +DI={format_num(plus_di_value)}, -DI={format_num(minus_di_value)}")
-            # print(f"  BOLL指标: 上轨={format_num(boll_top)}, 中轨={format_num(boll_mid)}, 下轨={format_num(boll_bot)}")
-            # print(f"  价格突破上轨: {price_above_top}, 中轨上升: {is_boll_mid_rising}")
-            # print(f"  最终趋势类型: {trend_type_name} ({self.lines.trend_type[0]})")
-            # print("="*50)
+            print(f"\n===== 日线趋势分析 [{current_date}] =====")
+            print(f"  收盘价: {format_num(close)}")
+            print(f"  DMI指标: period={self.params.dmi_period},threshold={self.params.adx_threshold}, ADX={format_num(adx_value)}, +DI={format_num(plus_di_value)}, -DI={format_num(minus_di_value)}")
+            print(f"  BOLL指标:period={self.params.boll_period}, boll_dev={self.params.boll_dev} 上轨={format_num(boll_top)}, 中轨={format_num(boll_mid)}, 下轨={format_num(boll_bot)}")
+            print(f"  价格突破上轨: {price_above_top}, 中轨上升: {is_boll_mid_rising}")
+            print(f"  最终趋势类型: {trend_type_name} ({self.lines.trend_type[0]})")
+            print("="*50)
