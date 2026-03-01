@@ -4,10 +4,12 @@
 - BTC 日线数据（2025年1月到现在）
 - BTC 4小时数据（2025年1月到现在）
 """
-
+import sys
+import os
 from datetime import datetime
-from data import BinanceDataFetcher
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from data.binance import BinanceDataFetcher
 # 设置API密钥
 API_KEY = "34Y19F0ilIFbUlb0z3JbBZG99B7Qx42CKVMs35G69P6qMhngGgtzu1VadUmue4Z6"
 API_SECRET = "0dGiAwz9qRCmarEFA4HehoYwdJOA5O4rdSOop9vD2hmV8zrrFPuSu31VdjbHFzZp"
@@ -45,12 +47,48 @@ def main():
     """
     # 设置时间参数
     start_time = datetime(2025, 1, 1)
-    end_time = datetime.now()
-    
+    # end_time = datetime.now()
+    end_time = datetime(2025, 12, 31)
+
     # 创建数据获取器
     fetcher = BinanceDataFetcher(api_key=API_KEY)
-    
+    # 下载ETH 1周线数据
+    # download_data(
+    #     fetcher=fetcher,
+    #     symbol="ETHUSDT",
+    #     interval="1w",
+    #     start_time=start_time,
+    #     end_time=end_time,
+    #     save_dir="ETH"
+    # )
+    # 下载ETH 1日线数据
+    download_data(
+        fetcher=fetcher,
+        symbol="ETHUSDT",
+        interval="1d",
+        start_time=start_time,
+        end_time=end_time,
+        save_dir="ETH"
+    )
+    # 下载ETH 4小时线数据
+    download_data(
+        fetcher=fetcher,
+        symbol="ETHUSDT",
+        interval="4h",
+        start_time=start_time,
+        end_time=end_time,
+        save_dir="ETH"
+    )
     # 下载ETH 1小时线数据
+    download_data(
+        fetcher=fetcher,
+        symbol="ETHUSDT",
+        interval="1h",
+        start_time=start_time,
+        end_time=end_time,
+        save_dir="ETH"
+    )
+    # 下载ETH 15分线数据
     download_data(
         fetcher=fetcher,
         symbol="ETHUSDT",
@@ -61,8 +99,16 @@ def main():
     )
 
     # 下载BTC日线和4小时数据到指定目录
-    btc_save_dir = "BTC"
-    
+    # btc_save_dir = "BTC"
+    # 下载BTC周线数据
+    # download_data(
+    #     fetcher=fetcher,
+    #     symbol="BTCUSDT",
+    #     interval="1w",
+    #     start_time=start_time,
+    #     end_time=end_time,
+    #     save_dir=btc_save_dir
+    # )
     # 下载BTC日线数据
     # download_data(
     #     fetcher=fetcher,
@@ -83,14 +129,23 @@ def main():
     #     save_dir=btc_save_dir
     # )
     # 下载BTC 1小时数据
-    download_data(
-        fetcher=fetcher,
-        symbol="BTCUSDT",
-        interval="15m",
-        start_time=start_time,
-        end_time=end_time,
-        save_dir=btc_save_dir
-    )
+    # download_data(
+    #     fetcher=fetcher,
+    #     symbol="BTCUSDT",
+    #     interval="1h",
+    #     start_time=start_time,
+    #     end_time=end_time,
+    #     save_dir=btc_save_dir
+    # )
+    # 下载BTC 15分数据
+    # download_data(
+    #     fetcher=fetcher,
+    #     symbol="BTCUSDT",
+    #     interval="15m",
+    #     start_time=start_time,
+    #     end_time=end_time,
+    #     save_dir=btc_save_dir
+    # )
     
     print("\n所有数据下载任务已完成！")
 
