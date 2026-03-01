@@ -61,6 +61,10 @@ class BinanceDataFetcher(DataFetcher):
         if self.api_key:
             headers['X-MBX-APIKEY'] = self.api_key
         
+        # 增加重试机制
+        max_retries = 1
+        retry_delay = 1
+        
         try:
             # 循环请求数据，直到获取所有数据
             while True:
@@ -72,10 +76,34 @@ class BinanceDataFetcher(DataFetcher):
                     'endTime': end_time_ms
                 }
                 
-                # 发送请求
-                response = requests.get(self.base_url, params=params, headers=headers)
-                response.raise_for_status()
-                data = response.json()
+                # 发送请求，带重试机制
+                for attempt in range(max_retries):
+                    try:
+                        # 发送请求，增加超时设置
+                        response = requests.get(
+                            self.base_url, 
+                            params=params, 
+                            headers=headers,
+                            timeout=10,  # 10秒超时
+                            verify=True  # 验证SSL证书
+                        )
+                        response.raise_for_status()
+                        data = response.json()
+                        break  # 成功获取数据，退出重试循环
+                    except requests.exceptions.SSLError as e:
+                        print(f"SSL错误 (尝试 {attempt+1}/{max_retries}): {e}")
+                        if attempt < max_retries - 1:
+                            time.sleep(retry_delay)
+                            retry_delay *= 2  # 指数退避
+                        else:
+                            raise
+                    except requests.exceptions.RequestException as e:
+                        print(f"请求错误 (尝试 {attempt+1}/{max_retries}): {e}")
+                        if attempt < max_retries - 1:
+                            time.sleep(retry_delay)
+                            retry_delay *= 2  # 指数退避
+                        else:
+                            raise
                 
                 if not data:
                     break  # 没有更多数据

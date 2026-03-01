@@ -41,113 +41,47 @@ def download_data(fetcher, symbol, interval, start_time, end_time, save_dir):
         print(f"{symbol} {interval} 数据下载失败")
         return False
 
+
 def main():
     """
-    下载ETH和BTC的不同时间周期数据
+    下载ETH和BTC的不同时间周期数据，每一年一个文件
     """
-    # 设置时间参数
-    start_time = datetime(2025, 1, 1)
-    # end_time = datetime.now()
-    end_time = datetime(2025, 12, 31)
-
+    # 解析命令行参数
+    symbol = "ETH"
+    if len(sys.argv) > 1:
+        symbol = sys.argv[1].upper()
+    
+    # 验证参数
+    if symbol not in ["ETH", "BTC"]:
+        print("错误：只支持ETH或BTC")
+        return
+    
     # 创建数据获取器
     fetcher = BinanceDataFetcher(api_key=API_KEY)
-    # 下载ETH 1周线数据
-    # download_data(
-    #     fetcher=fetcher,
-    #     symbol="ETHUSDT",
-    #     interval="1w",
-    #     start_time=start_time,
-    #     end_time=end_time,
-    #     save_dir="ETH"
-    # )
-    # 下载ETH 1日线数据
-    download_data(
-        fetcher=fetcher,
-        symbol="ETHUSDT",
-        interval="1d",
-        start_time=start_time,
-        end_time=end_time,
-        save_dir="ETH"
-    )
-    # 下载ETH 4小时线数据
-    download_data(
-        fetcher=fetcher,
-        symbol="ETHUSDT",
-        interval="4h",
-        start_time=start_time,
-        end_time=end_time,
-        save_dir="ETH"
-    )
-    # 下载ETH 1小时线数据
-    download_data(
-        fetcher=fetcher,
-        symbol="ETHUSDT",
-        interval="1h",
-        start_time=start_time,
-        end_time=end_time,
-        save_dir="ETH"
-    )
-    # 下载ETH 15分线数据
-    download_data(
-        fetcher=fetcher,
-        symbol="ETHUSDT",
-        interval="15m",
-        start_time=start_time,
-        end_time=end_time,
-        save_dir="ETH"
-    )
-
-    # 下载BTC日线和4小时数据到指定目录
-    # btc_save_dir = "BTC"
-    # 下载BTC周线数据
-    # download_data(
-    #     fetcher=fetcher,
-    #     symbol="BTCUSDT",
-    #     interval="1w",
-    #     start_time=start_time,
-    #     end_time=end_time,
-    #     save_dir=btc_save_dir
-    # )
-    # 下载BTC日线数据
-    # download_data(
-    #     fetcher=fetcher,
-    #     symbol="BTCUSDT",
-    #     interval="1d",
-    #     start_time=start_time,
-    #     end_time=end_time,
-    #     save_dir=btc_save_dir
-    # )
     
-    # 下载BTC 4小时数据
-    # download_data(
-    #     fetcher=fetcher,
-    #     symbol="BTCUSDT",
-    #     interval="4h",
-    #     start_time=start_time,
-    #     end_time=end_time,
-    #     save_dir=btc_save_dir
-    # )
-    # 下载BTC 1小时数据
-    # download_data(
-    #     fetcher=fetcher,
-    #     symbol="BTCUSDT",
-    #     interval="1h",
-    #     start_time=start_time,
-    #     end_time=end_time,
-    #     save_dir=btc_save_dir
-    # )
-    # 下载BTC 15分数据
-    # download_data(
-    #     fetcher=fetcher,
-    #     symbol="BTCUSDT",
-    #     interval="15m",
-    #     start_time=start_time,
-    #     end_time=end_time,
-    #     save_dir=btc_save_dir
-    # )
+    # 下载指定加密货币各周期数据（2017-2025年，每年一个文件）
+    save_dir = symbol
+    intervals = ["1w", "1d", "4h", "1h"]
+    intervals = ["15m"]
+    #2018 15m 数据下载失败，提示：Binance API error: 1002, Invalid symbol.
+    # 从2017年到2025年，每年下载一次
+    for year in range(2020, 2025):
+        start_time = datetime(year, 1, 1)
+        end_time = datetime(year, 12, 31)
+        
+        print(f"\n=== 开始下载{symbol} {year}年数据 ===")
+        
+        for interval in intervals:
+            download_data(
+                fetcher=fetcher,
+                symbol=f"{symbol}USDT",
+                interval=interval,
+                start_time=start_time,
+                end_time=end_time,
+                save_dir=save_dir
+            )
     
-    print("\n所有数据下载任务已完成！")
+    print(f"\n所有{symbol}数据下载任务已完成！")
 
 if __name__ == "__main__":
     main()
