@@ -104,7 +104,7 @@ def main():
     # 设置时间范围（2025年1月1日至2025年12月22日）
     global final_value, total_return
     start_date = datetime(2025, 1, 1)
-    end_date = datetime(2025, 12, 22)
+    end_date = datetime(2025, 12, 31)
 
     # 选择要测试的数据源
     if len(sys.argv) > 1:
