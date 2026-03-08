@@ -61,11 +61,11 @@ def main():
     
     # 下载指定加密货币各周期数据（2017-2025年，每年一个文件）
     save_dir = symbol
-    intervals = ["1w", "1d", "4h", "1h"]
-    intervals = ["15m"]
+    intervals = ["1w", "1d", "4h", "1h", "15m"]
+    # intervals = ["15m"]
     #2018 15m 数据下载失败，提示：Binance API error: 1002, Invalid symbol.
     # 从2017年到2025年，每年下载一次
-    for year in range(2020, 2025):
+    for year in range(2017, 2018):
         start_time = datetime(year, 1, 1)
         end_time = datetime(year, 12, 31)
         

@@ -51,13 +51,16 @@ def get_crypto_data(symbol: str, interval: str, start_year: int = 2025, end_year
     
     # 构造文件路径
     data_dir = os.path.join(os.path.dirname(__file__), symbol.upper())
-    
+
     # 收集所有年份的数据
     all_dfs = []
     for year in range(start_year, end_year + 1):
         file_path = os.path.join(data_dir, f"{symbol.lower()}usdt_{interval}_{year}0101_{year}1231.csv")
+        # print(f"检查文件: {file_path}")
         if os.path.exists(file_path):
+            # print(f"找到文件: {file_path}")
             df = pd.read_csv(file_path)
+            # print(f"文件行数: {len(df)}")
             all_dfs.append(df)
         else:
             print(f"警告: 文件不存在: {file_path}")
@@ -67,14 +70,33 @@ def get_crypto_data(symbol: str, interval: str, start_year: int = 2025, end_year
     
     # 合并数据
     df = pd.concat(all_dfs, ignore_index=True)
+    # print(f"合并后数据行数: {len(df)}")
+    # print(f"数据列: {list(df.columns)}")
     
     # 转换时间列
     df['datetime'] = pd.to_datetime(df['datetime'])
+    # print(f"时间列转换完成")
+    # print(f"数据时间范围: {df['datetime'].min()} 到 {df['datetime'].max()}")
     
-    # 创建Backtrader数据对象
+    # 按时间排序
+    df.sort_values('datetime', inplace=True)
+
+    # 重置索引
+    df.reset_index(drop=True, inplace=True)
+
+    # 确保数据列名正确
+    required_columns = ['datetime', 'open', 'high', 'low', 'close', 'volume']
+    for col in required_columns:
+        if col not in df.columns:
+            print(f"警告: 数据缺少列 {col}")
+    
+    # 设置datetime为索引（这是Backtrader PandasData的要求）
+    df.set_index('datetime', inplace=True)
+
+    # 创建标准的Backtrader数据对象
     data = bt.feeds.PandasData(
         dataname=df,
-        datetime='datetime',
+        datetime=None,  # 因为已经设置了索引
         open='open',
         high='high',
         low='low',

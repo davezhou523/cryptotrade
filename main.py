@@ -31,9 +31,9 @@ def run_single_strategy(params):
     cerebro.broker.set_coc(True)
     
     # 加载数据
-    data_1h = get_1h_data("ETH")
+    data_1h = get_1h_data("ETH",2017,2018)
     cerebro.adddata(data_1h)
-    data_daily = get_daily_data("ETH")
+    data_daily = get_daily_data("ETH",2017,2018)
     cerebro.adddata(data_daily)
     
     # 添加策略
