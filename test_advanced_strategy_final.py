@@ -16,18 +16,14 @@ def run_strategy():
     cerebro.broker.setcommission(commission=0.001, margin=1.0, stocklike=True)
     cerebro.broker.set_slippage_perc(0.001)
     cerebro.broker.set_slippage_fixed(0.01)
-    cerebro.broker.set_coc(True)
     # 加载不同时间周期的数据
     symbol = "ETH"
     start_year = 2025
     end_year = 2025
 
     # 按照时间周期从长到短的顺序添加数据
-    # 1. 周线数据
-    data_weekly = get_crypto_data(symbol, "1w", 2024, end_year)
-    cerebro.adddata(data_weekly, name="weekly")
 
-    # 2. 日线数据
+   # 2. 日线数据
     data_daily = get_crypto_data(symbol, "1d", 2024, end_year)
     cerebro.adddata(data_daily, name="daily")
 

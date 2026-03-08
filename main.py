@@ -22,8 +22,7 @@ def run_single_strategy(params):
     # 设置初始资金
     initial_cash = 3000
     cerebro.broker.setcash(initial_cash)
-    cerebro.broker.set_shortcash(True)
-    
+
     # 设置交易手续费和滑点
     cerebro.broker.setcommission(commission=0.001, margin=1.0, stocklike=True)
     cerebro.broker.set_slippage_perc(0.001)
