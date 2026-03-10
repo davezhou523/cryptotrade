@@ -96,7 +96,16 @@ class AdvancedStrategy(bt.Strategy):
             # 打印数据长度信息
             self.log(f'数据长度: daily={daily_length}, 4h={h4_length}, 1h={h1_length}')
 
-
+            # 打印指标参数设置
+            self.log('\n=== 指标参数设置 ===')
+            self.log(f'日线EMA21周期: {self.params.daily_ema21},日线EMA55周期: {self.params.daily_ema55},日线EMA122周期: {self.params.daily_ema122}')
+            self.log(f'日线布林带周期: {self.params.daily_boll_period}, 标准差: {self.params.daily_boll_dev}')
+            self.log(f'DMI周期: {self.params.dmi_period}')
+            self.log(f'4H布林带周期: {self.params.boll_4h_period}, 标准差: {self.params.boll_4h_dev}')
+            self.log(f'4H Donchian通道周期: {self.params.donchian_period}')
+            self.log(f'4H EMA21周期: 21')
+            self.log(f'1H布林带周期: {self.params.boll_1h_period}, 标准差: {self.params.boll_1h_dev}')
+            self.log(f'ATR周期: {self.params.atr_period},成交量MA周期: {self.params.volume_ma_period}')
 
             # 其他时间周期的数据长度检查
             if daily_length < self.min_period or h4_length < self.min_period or h1_length < self.min_period:
@@ -105,9 +114,13 @@ class AdvancedStrategy(bt.Strategy):
                 return False
 
             # 添加 EMA 指标
+            self.log('\n=== 初始化指标 ===')
+            self.log('初始化日线EMA指标...')
             self.daily_ema21 = bt.indicators.EMA(self.data_daily.close, period=self.params.daily_ema21)
             self.daily_ema55 = bt.indicators.EMA(self.data_daily.close, period=self.params.daily_ema55)
             self.daily_ema122 = bt.indicators.EMA(self.data_daily.close, period=self.params.daily_ema122)
+            
+            self.log('初始化日线布林带指标...')
             self.daily_boll = bt.indicators.BBands(
                 self.data_daily,
                 period=self.params.daily_boll_period,
@@ -115,10 +128,12 @@ class AdvancedStrategy(bt.Strategy):
             )
             # 计算Boll Width
             self.daily_boll_width = (self.daily_boll.top - self.daily_boll.bot) / self.daily_boll.mid
-            # DMI指标
+            
+            self.log('初始化DMI指标...')
             self.dmi = DMI(self.data_daily, period=self.params.dmi_period)
             
             # 4H指标
+            self.log('初始化4H指标...')
             self.h4_boll = bt.indicators.BBands(
                 self.data_4h,
                 period=self.params.boll_4h_period,
@@ -133,12 +148,14 @@ class AdvancedStrategy(bt.Strategy):
             # 4H ADX（趋势强度）
             self.h4_dmi = DMI(self.data_4h, period=self.params.dmi_period)
             # 4H ATR（波动率判断）
+            self.log(f'初始化4H ATR指标 (周期: {self.params.atr_period})...')
             self.h4_atr = bt.indicators.ATR(self.data_4h, period=self.params.atr_period)
             # 4H成交量MA
             self.h4_volume_ma = bt.indicators.SMA(self.data_4h.volume, period=self.params.volume_ma_period)
 
             
             # 1H指标
+            self.log('初始化1H指标...')
             self.h1_boll = bt.indicators.BBands(
                 self.data_1h,
                 period=self.params.boll_1h_period,
@@ -146,6 +163,7 @@ class AdvancedStrategy(bt.Strategy):
             )
             
             # 日线ATR（用于风险控制）
+            self.log(f'初始化日线ATR指标 (周期: {self.params.atr_period})...')
             self.daily_atr = bt.indicators.ATR(
                 self.data_daily,
                 period=self.params.atr_period
@@ -276,7 +294,8 @@ class AdvancedStrategy(bt.Strategy):
             return False
         return True
 
-    # 在策略的next方法中添加详细的条件检查
+
+    # 在策略的next方法中添加详细的指标数值日志
     def next(self):
         """主策略逻辑"""
         if self.order:
@@ -346,6 +365,7 @@ class AdvancedStrategy(bt.Strategy):
                         len(self.h4_atr) < self.params.atr_period or
                         len(self.h1_boll.top) < self.params.boll_1h_period or
                         len(self.daily_atr) < self.params.atr_period):
+                    self.log('指标数据不足，等待更多数据')
                     return
             except Exception as e:
                 self.log(f'指标数据检查错误: {str(e)}')
@@ -360,6 +380,19 @@ class AdvancedStrategy(bt.Strategy):
                 if current_time.hour % 8 == 0:  # 每8小时打印一次
                     self.log(
                         f'调试信息: 当前时间={current_time}, 4H收盘价={current_4h_close:.2f}, 4H ATR={current_h4_atr:.2f}')
+
+                    # 打印详细的指标数值
+                    self.log('\n=== 指标数值 ===')
+                    self.log(f'日线EMA21: {self.daily_ema21[0]:.2f}')
+                    self.log(f'日线EMA55: {self.daily_ema55[0]:.2f}')
+                    self.log(f'日线EMA122: {self.daily_ema122[0]:.2f}')
+                    self.log(f'日线ADX: {self.dmi.adx[0]:.2f}，日线DI+: {self.dmi.plus_di[0]:.2f},日线DI-: {self.dmi.minus_di[0]:.2f}')
+
+                    self.log(f'4H ATR: {self.h4_atr[0]:.2f} (Binance标准: 14周期)')
+                    self.log(f'4H ADX: {self.h4_dmi.adx[0]:.2f},4H DI+: {self.h4_dmi.plus_di[0]:.2f},4H DI-: {self.h4_dmi.minus_di[0]:.2f}')
+                    self.log(f'4H EMA21: {self.h4_ema21[0]:.2f}')
+                    self.log(f'4H Donchian上轨: {self.h4_donchian_high[0]:.2f}')
+                    self.log(f'4H Donchian下轨: {self.h4_donchian_low[0]:.2f}')
 
                 # 判断日线趋势
                 self.trend_type = self.determine_trend()
@@ -378,6 +411,8 @@ class AdvancedStrategy(bt.Strategy):
                 if self.data_daily.close[0] <= self.daily_ema122[0]:
                     self.log(f'价格 {self.data_daily.close[0]:.2f} 低于 EMA122 {self.daily_ema122[0]:.2f}，不入场')
                     return
+                else:
+                    self.log(f'价格 {self.data_daily.close[0]:.2f} 高于 EMA122 {self.daily_ema122[0]:.2f}，继续检查')
 
                 # 波动过滤：ATR / price > 1.5%
                 h4_atr_percent = current_h4_atr / current_4h_close
@@ -385,11 +420,15 @@ class AdvancedStrategy(bt.Strategy):
                     self.log(
                         f'波动太小，ATR/价格 = {h4_atr_percent:.4f} < 0.015，不入场,h4_atr={current_h4_atr:.2f},4h_close={current_4h_close:.2f}')
                     return
+                else:
+                    self.log(f'波动足够，ATR/价格 = {h4_atr_percent:.4f} >= 0.015，继续检查')
 
                 # 趋势强度：ADX > 20
                 if self.h4_dmi.adx[0] <= 20:
                     self.log(f'趋势强度不足，4h ADX = {self.h4_dmi.adx[0]:.2f} <= 20，不入场')
                     return
+                else:
+                    self.log(f'趋势强度足够，4h ADX = {self.h4_dmi.adx[0]:.2f} > 20，继续检查')
 
                 # 检查是否有仓位
                 if not self.position:
