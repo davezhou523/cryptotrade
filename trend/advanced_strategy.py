@@ -32,7 +32,7 @@ class AdvancedStrategy(bt.Strategy):
         ('stop_loss_multiplier', 2.0),
         ('atr_period', 14),
         ('risk_per_trade', 0.02),  # 每笔交易风险2%
-        ('atr_risk_threshold', 0.01),  # ATR风险阈值4%
+        ('atr_risk_threshold', 0.04),  # ATR风险阈值4%
         ('rr_ratio', 2.0),  # 风险回报比2:1
     )
 
@@ -65,6 +65,7 @@ class AdvancedStrategy(bt.Strategy):
         self.take_profit = None
         self.entry_price = None
         self.trend_type = 0  # 0: 震荡, 1: 上涨, -1: 下跌
+        self.last_4h_bar_time = None  # 避免同一根4H K线重复执行
         
         # 初始化指标状态
         self.indicators_ready = False
@@ -309,6 +310,11 @@ class AdvancedStrategy(bt.Strategy):
             # 获取当前4H时间
             current_time = self.data_4h.datetime.datetime(0)
 
+            # 只在新的4H K线上执行一次，避免1H驱动下重复触发
+            if self.last_4h_bar_time == current_time:
+                return
+            self.last_4h_bar_time = current_time
+
             # 检查指标是否存在
             required_indicators = ['daily_ema21', 'daily_ema55', 'daily_ema122', 'daily_boll',
                                    'daily_boll_width', 'dmi', 'h4_boll', 'h4_donchian_high',
@@ -383,16 +389,13 @@ class AdvancedStrategy(bt.Strategy):
 
                     # 打印详细的指标数值
                     self.log('\n=== 指标数值 ===')
-                    self.log(f'日线EMA21: {self.daily_ema21[0]:.2f}')
-                    self.log(f'日线EMA55: {self.daily_ema55[0]:.2f}')
-                    self.log(f'日线EMA122: {self.daily_ema122[0]:.2f}')
+                    self.log(f'日线EMA21: {self.daily_ema21[0]:.2f},日线EMA55: {self.daily_ema55[0]:.2f},日线EMA122: {self.daily_ema122[0]:.2f}')
                     self.log(f'日线ADX: {self.dmi.adx[0]:.2f}，日线DI+: {self.dmi.plus_di[0]:.2f},日线DI-: {self.dmi.minus_di[0]:.2f}')
 
                     self.log(f'4H ATR: {self.h4_atr[0]:.2f} (Binance标准: 14周期)')
                     self.log(f'4H ADX: {self.h4_dmi.adx[0]:.2f},4H DI+: {self.h4_dmi.plus_di[0]:.2f},4H DI-: {self.h4_dmi.minus_di[0]:.2f}')
                     self.log(f'4H EMA21: {self.h4_ema21[0]:.2f}')
-                    self.log(f'4H Donchian上轨: {self.h4_donchian_high[0]:.2f}')
-                    self.log(f'4H Donchian下轨: {self.h4_donchian_low[0]:.2f}')
+                    self.log(f'4H Donchian上轨: {self.h4_donchian_high[0]:.2f},下轨: {self.h4_donchian_low[0]:.2f}')
 
                 # 判断日线趋势
                 self.trend_type = self.determine_trend()
@@ -407,12 +410,13 @@ class AdvancedStrategy(bt.Strategy):
                 if not self.check_risk_filter():
                     return
 
-                # 检查价格是否大于 EMA122
-                if self.data_daily.close[0] <= self.daily_ema122[0]:
-                    self.log(f'价格 {self.data_daily.close[0]:.2f} 低于 EMA122 {self.daily_ema122[0]:.2f}，不入场')
+                # 价格与EMA122方向一致过滤（多头在上方，空头在下方）
+                if self.trend_type == 1 and self.data_daily.close[0] <= self.daily_ema122[0]:
+                    self.log(f'多头过滤：价格 {self.data_daily.close[0]:.2f} 低于 EMA122 {self.daily_ema122[0]:.2f}，不入场')
                     return
-                else:
-                    self.log(f'价格 {self.data_daily.close[0]:.2f} 高于 EMA122 {self.daily_ema122[0]:.2f}，继续检查')
+                if self.trend_type == -1 and self.data_daily.close[0] >= self.daily_ema122[0]:
+                    self.log(f'空头过滤：价格 {self.data_daily.close[0]:.2f} 高于 EMA122 {self.daily_ema122[0]:.2f}，不入场')
+                    return
 
                 # 波动过滤：ATR / price > 1.5%
                 h4_atr_percent = current_h4_atr / current_4h_close
@@ -434,13 +438,14 @@ class AdvancedStrategy(bt.Strategy):
                 if not self.position:
 
                     if self.trend_type == 1:
-                        # 4H突破入场：价格突破Donchian Channel
-                        if current_4h_close > self.h4_donchian_high[0]:
+                        # Donchian通道需使用上一根K线值，避免与当前K线产生“永远无法突破”的比较
+                        prev_donchian_high = self.h4_donchian_high[-1]
+                        # 4H突破入场：价格突破上一根Donchian上轨
+                        if current_4h_close > prev_donchian_high:
                             # 入场确认：成交量大于MA20
                             if self.data_4h.volume[0] > self.h4_volume_ma[0]:
                                 self.log(
-                                    f'强多头趋势突破入场 | 价格: {current_4h_close:.2f} | 突破: {self.h4_donchian_high[0]:.2f} | ADX: {self.h4_dmi.adx[0]:.2f}')
-                                # 计算仓位大小（风险控制）
+                                    f'强多头趋势突破入场 | 价格: {current_4h_close:.2f} | 突破(前值): {prev_donchian_high:.2f} | ADX: {self.h4_dmi.adx[0]:.2f}')
                                 size = self.calculate_position_size(current_4h_close)
                                 self.order = self.buy(size=size)
                             else:
@@ -448,17 +453,17 @@ class AdvancedStrategy(bt.Strategy):
                                     f'突破条件满足但成交量不足 | 成交量: {self.data_4h.volume[0]} < MA20: {self.h4_volume_ma[0]}')
                         else:
                             self.log(
-                                f'未突破Donchian通道 | 当前价格: {current_4h_close:.2f} <= 通道上轨: {self.h4_donchian_high[0]:.2f}')
+                                f'未突破Donchian通道 | 当前价格: {current_4h_close:.2f} <= 前上轨: {prev_donchian_high:.2f}')
 
                     # 强空头趋势：EMA21 < EMA55 < EMA122
                     elif self.trend_type == -1:
-                        # 4H跌破入场：价格跌破Donchian Low
-                        if current_4h_close < self.h4_donchian_low[0]:
+                        prev_donchian_low = self.h4_donchian_low[-1]
+                        # 4H跌破入场：价格跌破上一根Donchian下轨
+                        if current_4h_close < prev_donchian_low:
                             # 入场确认：成交量大于MA20
                             if self.data_4h.volume[0] > self.h4_volume_ma[0]:
                                 self.log(
-                                    f'强空头趋势跌破入场 | 价格: {current_4h_close:.2f} | 跌破: {self.h4_donchian_low[0]:.2f} | ADX: {self.h4_dmi.adx[0]:.2f}')
-                                # 计算仓位大小（风险控制）
+                                    f'强空头趋势跌破入场 | 价格: {current_4h_close:.2f} | 跌破(前值): {prev_donchian_low:.2f} | ADX: {self.h4_dmi.adx[0]:.2f}')
                                 size = self.calculate_position_size(current_4h_close)
                                 self.order = self.sell(size=size)
                             else:
@@ -466,18 +471,27 @@ class AdvancedStrategy(bt.Strategy):
                                     f'跌破条件满足但成交量不足 | 成交量: {self.data_4h.volume[0]} < MA20: {self.h4_volume_ma[0]}')
                         else:
                             self.log(
-                                f'未跌破Donchian通道 | 当前价格: {current_4h_close:.2f} >= 通道下轨: {self.h4_donchian_low[0]:.2f}')
+                                f'未跌破Donchian通道 | 当前价格: {current_4h_close:.2f} >= 前下轨: {prev_donchian_low:.2f}')
                 else:
-                    # 出场条件
-
-                    # 止损：4H ATR × 2
-                    if self.stop_loss is not None and current_4h_close <= self.stop_loss:
-                        self.log(f'触发止损4h | 价格: {current_4h_close:.2f} | 止损价: {self.stop_loss:.2f}')
-                        self.order = self.close()
-                    # 止盈：跌破4H EMA21
-                    elif current_4h_close < self.h4_ema21[0]:
-                        self.log(f'触发止盈 | 价格: {current_4h_close:.2f} | 4H EMA21: {self.h4_ema21[0]:.2f}')
-                        self.order = self.close()
+                    # 出场条件（区分多空）
+                    if self.position.size > 0:
+                        # 多头止损：价格跌破止损线
+                        if self.stop_loss is not None and current_4h_close <= self.stop_loss:
+                            self.log(f'触发多头止损 | 价格: {current_4h_close:.2f} | 止损价: {self.stop_loss:.2f}')
+                            self.order = self.close()
+                        # 多头止盈：价格跌破4H EMA21
+                        elif current_4h_close < self.h4_ema21[0]:
+                            self.log(f'触发多头止盈 | 价格: {current_4h_close:.2f} | 4H EMA21: {self.h4_ema21[0]:.2f}')
+                            self.order = self.close()
+                    elif self.position.size < 0:
+                        # 空头止损：价格突破止损线
+                        if self.stop_loss is not None and current_4h_close >= self.stop_loss:
+                            self.log(f'触发空头止损 | 价格: {current_4h_close:.2f} | 止损价: {self.stop_loss:.2f}')
+                            self.order = self.close()
+                        # 空头止盈：价格突破4H EMA21
+                        elif current_4h_close > self.h4_ema21[0]:
+                            self.log(f'触发空头止盈 | 价格: {current_4h_close:.2f} | 4H EMA21: {self.h4_ema21[0]:.2f}')
+                            self.order = self.close()
             except Exception as e:
                 self.log(f'策略逻辑错误: {str(e)}')
                 import traceback
