@@ -7,7 +7,7 @@ import time
 import pandas as pd
 import os
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 from .base import DataFetcher
 
 
@@ -129,7 +129,7 @@ class BinanceDataFetcher(DataFetcher):
             # 处理数据格式，使其适合Backtrader
             processed_data = []
             for item in all_data:
-                timestamp = datetime.fromtimestamp(item[0] / 1000).strftime('%Y-%m-%d %H:%M:%S')
+                timestamp = datetime.fromtimestamp(item[0] / 1000, timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
                 processed_data.append([
                     timestamp,
                     float(item[1]),  # open
