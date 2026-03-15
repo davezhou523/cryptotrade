@@ -6,57 +6,57 @@ class AdvancedStrategy(bt.Strategy):
     """多周期市场结构策略：周线定趋势，日线定状态，4H出信号，1H执行。"""
 
     params = (
-        ('printlog', False),
-        ('eventlog', False),
-        ('weekly_ema_fast', 21),
-        ('weekly_ema_slow', 55),
-        ('weekly_adx_trend_threshold', 25),
-        ('weekly_adx_weak_threshold', 20),
-        ('daily_ema_fast', 21),
-        ('daily_ema_slow', 55),
-        ('daily_boll_period', 20),
-        ('daily_boll_dev', 2.0),
-        ('daily_adx_trend_threshold', 25),
-        ('daily_adx_sideways_threshold', 20),
-        ('daily_boll_compression_threshold', 0.05),
-        ('daily_boll_expansion_threshold', 0.10),
-        ('dmi_period', 14),
-        ('h4_donchian_period', 20),
-        ('h4_boll_period', 20),
-        ('h4_boll_dev', 2.0),
-        ('h4_ema_period', 21),
-        ('volume_ma_period', 20),
-        ('atr_period', 14),
-        ('atr_ma_period', 14),
-        ('h4_volume_ratio_threshold', 1.20),
-        ('h4_breakout_buffer', 0.0015),
-        ('h4_breakout_body_ratio', 0.45),
-        ('h4_breakout_close_strength', 0.65),
-        ('h4_pullback_close_strength', 0.55),
-        ('h4_pullback_volume_ratio', 0.90),
-        ('h1_donchian_period', 10),
-        ('h1_boll_period', 20),
-        ('h1_boll_dev', 2.0),
-        ('h1_stop_atr_multiplier', 2.0),
-        ('h1_volume_ratio_threshold', 1.00),
-        ('h1_breakout_buffer', 0.0008),
-        ('h1_breakout_body_ratio', 0.35),
-        ('h1_breakout_close_strength', 0.60),
-        ('require_breakout_retest', True),
-        ('h1_retest_touch_buffer', 0.0015),
-        ('h1_retest_hold_buffer', 0.0005),
-        ('h1_retest_confirm_buffer', 0.0003),
-        ('h1_retest_body_ratio', 0.25),
-        ('h1_retest_close_strength', 0.55),
-        ('h1_retest_volume_ratio_threshold', 1.10),
-        ('h1_reversal_close_strength', 0.55),
-        ('risk_per_trade', 0.02),
-        ('rr_ratio', 2.0),
-        ('signal_valid_bars', 4),
-        ('trend_breakeven_rr', 1.0),
-        ('trend_trailing_activation_rr', 2.0),
-        ('trend_trailing_atr_multiplier', 3.0),
-        ('trend_ema_exit_buffer', 0.0020),
+        ('printlog', False),  # 是否打印日志
+        ('eventlog', False),  # 是否打印事件日志
+        ('weekly_ema_fast', 21),  # 周线快速EMA周期
+        ('weekly_ema_slow', 55),  # 周线慢速EMA周期
+        ('weekly_adx_trend_threshold', 25),  # 周线ADX趋势阈值
+        ('weekly_adx_weak_threshold', 20),  # 周线ADX弱趋势阈值
+        ('daily_ema_fast', 21),  # 日线快速EMA周期
+        ('daily_ema_slow', 55),  # 日线慢速EMA周期
+        ('daily_boll_period', 20),  # 日线布林带周期
+        ('daily_boll_dev', 2.0),  # 日线布林带标准差倍数
+        ('daily_adx_trend_threshold', 25),  # 日线ADX趋势阈值
+        ('daily_adx_sideways_threshold', 20),  # 日线ADX震荡阈值
+        ('daily_boll_compression_threshold', 0.05),  # 日线布林带压缩阈值
+        ('daily_boll_expansion_threshold', 0.10),  # 日线布林带扩张阈值
+        ('dmi_period', 14),  # DMI指标周期
+        ('h4_donchian_period', 20),  # 4小时唐奇安通道周期
+        ('h4_boll_period', 20),  # 4小时布林带周期
+        ('h4_boll_dev', 2.0),  # 4小时布林带标准差倍数
+        ('h4_ema_period', 21),  # 4小时EMA周期
+        ('volume_ma_period', 20),  # 成交量移动平均周期
+        ('atr_period', 14),  # ATR周期
+        ('atr_ma_period', 14),  # ATR移动平均周期
+        ('h4_volume_ratio_threshold', 1.20),  # 4小时成交量比率阈值
+        ('h4_breakout_buffer', 0.0015),  # 4小时突破缓冲比例
+        ('h4_breakout_body_ratio', 0.45),  # 4小时突破K线实体比例
+        ('h4_breakout_close_strength', 0.65),  # 4小时突破收盘强度
+        ('h4_pullback_close_strength', 0.55),  # 4小时回撤收盘强度
+        ('h4_pullback_volume_ratio', 0.90),  # 4小时回撤成交量比率
+        ('h1_donchian_period', 10),  # 1小时唐奇安通道周期
+        ('h1_boll_period', 20),  # 1小时布林带周期
+        ('h1_boll_dev', 2.0),  # 1小时布林带标准差倍数
+        ('h1_stop_atr_multiplier', 2.0),  # 1小时止损ATR倍数
+        ('h1_volume_ratio_threshold', 1.00),  # 1小时成交量比率阈值
+        ('h1_breakout_buffer', 0.0008),  # 1小时突破缓冲比例
+        ('h1_breakout_body_ratio', 0.35),  # 1小时突破K线实体比例
+        ('h1_breakout_close_strength', 0.60),  # 1小时突破收盘强度
+        ('require_breakout_retest', True),  # 是否需要突破回踩确认
+        ('h1_retest_touch_buffer', 0.0015),  # 1小时回踩触碰缓冲
+        ('h1_retest_hold_buffer', 0.0005),  # 1小时回踩保持缓冲
+        ('h1_retest_confirm_buffer', 0.0003),  # 1小时回踩确认缓冲
+        ('h1_retest_body_ratio', 0.25),  # 1小时回踩K线实体比例
+        ('h1_retest_close_strength', 0.55),  # 1小时回踩收盘强度
+        ('h1_retest_volume_ratio_threshold', 1.10),  # 1小时回踩成交量比率阈值
+        ('h1_reversal_close_strength', 0.55),  # 1小时反转收盘强度
+        ('risk_per_trade', 0.02),  # 每笔交易风险比例
+        ('rr_ratio', 2.0),  # 风险回报比率
+        ('signal_valid_bars', 4),  # 信号有效K线数量
+        ('trend_breakeven_rr', 1.0),  # 趋势保本风险回报比
+        ('trend_trailing_activation_rr', 2.0),  # 趋势跟踪止损激活风险回报比
+        ('trend_trailing_atr_multiplier', 3.0),  # 趋势跟踪止损ATR倍数
+        ('trend_ema_exit_buffer', 0.0020),  # 趋势EMA退出缓冲比例
         # 交易费用参数
         ('trading_fee', 0.001),  # 交易手续费 0.100%
         ('slippage', 0.0005),  # 滑点 0.05%
@@ -73,6 +73,11 @@ class AdvancedStrategy(bt.Strategy):
         self.pending_entry_signal = None
         self.entry_context = None
         self.entry_price = None
+        self.entry_time = None
+        self.entry_side = None
+        self.entry_exec_price = None
+        self.entry_reason = None
+        self.pending_exit_reason = None
         self.entry_stop_distance = None
         self.stop_loss = None
         self.take_profit = None
@@ -84,7 +89,9 @@ class AdvancedStrategy(bt.Strategy):
         
         # 交易费用跟踪
         self.total_fees = 0.0
+        self.current_trade_fees = 0.0
         self.trade_count = 0
+        self.last_closed_trade = None
         
         # 打印交易费用设置
         self.log('\n=== 交易费用设置 ===')
@@ -199,6 +206,11 @@ class AdvancedStrategy(bt.Strategy):
 
     def reset_trade_state(self):
         self.entry_price = None
+        self.entry_time = None
+        self.entry_side = None
+        self.entry_exec_price = None
+        self.entry_reason = None
+        self.pending_exit_reason = None
         self.entry_stop_distance = None
         self.stop_loss = None
         self.take_profit = None
@@ -209,6 +221,10 @@ class AdvancedStrategy(bt.Strategy):
     @staticmethod
     def format_price(value):
         return f'{value:.2f}' if value is not None else '动态跟踪'
+
+    @staticmethod
+    def format_dt(value):
+        return value.strftime('%Y-%m-%d %H:%M:%S') if value is not None else '-'
 
     def get_entry_risk(self):
         return max(self.entry_stop_distance or self.get_stop_distance(), 1e-8)
@@ -272,31 +288,42 @@ class AdvancedStrategy(bt.Strategy):
             return
 
         if order.status == order.Completed:
-            # 计算交易费用
+            executed_dt = bt.num2date(order.executed.dt) if order.executed.dt else self.data_1h.datetime.datetime(0)
             executed_value = order.executed.price * abs(order.executed.size)
-            if order.isbuy() or order.issell():
-                # 开仓费用
-                fee = executed_value * self.params.trading_fee
-                self.total_fees += fee
-                self.trade_count += 1
-                self.log(f'交易费用: {fee:.2f} | 累计费用: {self.total_fees:.2f}')
-            else:
-                # 平仓费用
-                fee = executed_value * self.params.trading_fee
-                self.total_fees += fee
-                self.log(f'平仓费用: {fee:.2f} | 累计费用: {self.total_fees:.2f}')
-            
+            fee = executed_value * self.params.trading_fee
+            self.total_fees += fee
+
             position = self.get_trade_position()
             if position.size == 0:
+                self.current_trade_fees += fee
+                exit_reason = self.pending_exit_reason or '信号平仓'
+                self.last_closed_trade = {
+                    'direction': self.entry_side,
+                    'entry_time': self.entry_time,
+                    'entry_price': self.entry_exec_price,
+                    'entry_reason': self.entry_reason,
+                    'exit_time': executed_dt,
+                    'exit_price': order.executed.price,
+                    'exit_reason': exit_reason,
+                    'size': abs(order.executed.size),
+                }
+                action = '卖出' if order.issell() else '买入'
                 self.log(
-                    f'平仓完成 | 价格: {order.executed.price:.2f} | 数量: {abs(order.executed.size):.4f}',
+                    f'{action}成交 | 时间: {self.format_dt(executed_dt)} | 价格: {order.executed.price:.2f} | '
+                    f'数量: {abs(order.executed.size):.4f} | 手续费: {fee:.2f} | 平仓原因: {exit_reason} | '
+                    f'累计费用: {self.total_fees:.2f}',
                     force=True,
                 )
+                self.log(f'成交: {action}平仓 | 原因: {exit_reason}', force=True)
                 self.reset_trade_state()
             elif position.size > 0:
-                # 考虑滑点后的实际买入价格
                 actual_price = order.executed.price * (1 + self.params.slippage)
                 signal = self.pending_entry_signal or {}
+                self.current_trade_fees = fee
+                self.entry_time = executed_dt
+                self.entry_side = 'long'
+                self.entry_exec_price = order.executed.price
+                self.entry_reason = signal.get('confirm_reason') or f'{signal.get("strategy")} / {signal.get("trigger")}'
                 self.entry_price = actual_price
                 self.entry_stop_distance = self.get_stop_distance()
                 self.stop_loss = self.entry_price - self.entry_stop_distance
@@ -308,14 +335,25 @@ class AdvancedStrategy(bt.Strategy):
                     self.take_profit = None
                 self.entry_context = signal
                 self.log(
+                    f'买入成交 | 时间: {self.format_dt(executed_dt)} | 价格: {order.executed.price:.2f} | '
+                    f'数量: {abs(order.executed.size):.4f} | 手续费: {fee:.2f} | 开仓原因: {self.entry_reason} | '
+                    f'累计费用: {self.total_fees:.2f}',
+                    force=True,
+                )
+                self.log(f'成交: 多头开仓 | 原因: {self.entry_reason}', force=True)
+                self.log(
                     f'多头开仓 | 策略: {signal.get("strategy")} | 触发: {signal.get("trigger")} | '
                     f'价格: {self.entry_price:.2f} | 止损: {self.stop_loss:.2f} | 止盈: {self.format_price(self.take_profit)}',
                     force=True,
                 )
             else:
-                # 考虑滑点后的实际卖出价格
                 actual_price = order.executed.price * (1 - self.params.slippage)
                 signal = self.pending_entry_signal or {}
+                self.current_trade_fees = fee
+                self.entry_time = executed_dt
+                self.entry_side = 'short'
+                self.entry_exec_price = order.executed.price
+                self.entry_reason = signal.get('confirm_reason') or f'{signal.get("strategy")} / {signal.get("trigger")}'
                 self.entry_price = actual_price
                 self.entry_stop_distance = self.get_stop_distance()
                 self.stop_loss = self.entry_price + self.entry_stop_distance
@@ -326,26 +364,67 @@ class AdvancedStrategy(bt.Strategy):
                 else:
                     self.take_profit = None
                 self.entry_context = signal
+                self.log(f'成交: 空头开仓 | 原因: {self.entry_reason}', force=True)
                 self.log(
                     f'空头开仓 | 策略: {signal.get("strategy")} | 触发: {signal.get("trigger")} | '
                     f'价格: {self.entry_price:.2f} | 止损: {self.stop_loss:.2f} | 止盈: {self.format_price(self.take_profit)}',
                     force=True,
                 )
+                self.log(
+                    f'卖出成交 | 时间: {self.format_dt(executed_dt)} | 价格: {order.executed.price:.2f} | '
+                    f'数量: {abs(order.executed.size):.4f} | 手续费: {fee:.2f} | 开仓原因: {self.entry_reason} | '
+                    f'累计费用: {self.total_fees:.2f}',
+                    force=True,
+                )
+
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
             self.log('订单被取消/保证金不足/被拒绝', force=True)
+            self.log('没有成交: 订单被取消/保证金不足/被拒绝', force=True)
 
         self.pending_entry_signal = None
         self.order = None
 
     def notify_trade(self, trade):
         if trade.isclosed:
-            # 计算净利润（考虑交易费用）
-            net_profit = trade.pnl - self.total_fees
+            self.trade_count += 1
+            closed_trade = self.last_closed_trade or {}
+            direction = closed_trade.get('direction') or ('long' if getattr(trade, 'long', True) else 'short')
+            entry_time = closed_trade.get('entry_time')
+            entry_price = closed_trade.get('entry_price')
+            entry_reason = closed_trade.get('entry_reason') or '-'
+            exit_time = closed_trade.get('exit_time')
+            exit_price = closed_trade.get('exit_price')
+            exit_reason = closed_trade.get('exit_reason') or '-'
+            size = closed_trade.get('size') or 0
+            trade_fee = self.current_trade_fees
+            net_profit = trade.pnl - trade_fee
+            entry_value = abs(entry_price * size) if entry_price is not None else 0
+            return_pct = (net_profit / entry_value * 100) if entry_value else 0
+
+            if direction == 'short':
+                profit_loss_str = f'盈利: {net_profit:.2f}' if net_profit >= 0 else f'亏损: {abs(net_profit):.2f}'
+                summary = (
+                    f'第{self.trade_count}笔交易完成（空头） | 卖出时间: {self.format_dt(entry_time)} | '
+                    f'卖出价: {self.format_price(entry_price)} | 买入时间: {self.format_dt(exit_time)} | '
+                    f'买入价: {self.format_price(exit_price)} | {profit_loss_str} | 收益率: {return_pct:.2f}% | '
+                    f'开仓原因: {entry_reason} | 平仓原因: {exit_reason}'
+                )
+            else:
+                profit_loss_str = f'盈利: {net_profit:.2f}' if net_profit >= 0 else f'亏损: {abs(net_profit):.2f}'
+                summary = (
+                    f'第{self.trade_count}笔交易完成（多头） | 买入时间: {self.format_dt(entry_time)} | '
+                    f'买入价: {self.format_price(entry_price)} | 卖出时间: {self.format_dt(exit_time)} | '
+                    f'卖出价: {self.format_price(exit_price)} | {profit_loss_str} | 收益率: {return_pct:.2f}% | '
+                    f'开仓原因: {entry_reason} | 平仓原因: {exit_reason}'
+                )
+
+            self.log(summary, force=True)
             self.log(
-                f'交易完成 | 毛利润: {trade.pnl:.2f} | 交易费用: {self.total_fees:.2f} | 净利润: {net_profit:.2f}',
+                f'交易明细 | 毛利润: {trade.pnl:.2f} | 交易费用: {trade_fee:.2f} | 净利润: {net_profit:.2f}',
                 force=True,
             )
-            self.log(f'累计交易次数: {self.trade_count}')
+            self.current_trade_fees = 0.0
+            self.last_closed_trade = None
 
     def is_ready(self):
         return (
@@ -580,6 +659,14 @@ class AdvancedStrategy(bt.Strategy):
             f'4H 信号生成 | 状态: {state} | 策略: {signal["strategy"]} | 方向: {signal["direction"]} | 触发: {signal["trigger"]}',
             force=True,
         )
+        # 添加指标数值显示
+        self.log(
+            f'4H 指标数值 | 价格: {self.data_4h.close[0]:.2f} | '
+            f'Donchian高: {self.h4_donchian_high[-1]:.2f} | Donchian低: {self.h4_donchian_low[-1]:.2f} | '
+            f'布林上轨: {self.h4_boll.top[0]:.2f} | 布林中轨: {self.h4_boll.mid[0]:.2f} | 布林下轨: {self.h4_boll.bot[0]:.2f} | '
+            f'EMA21: {self.h4_ema21[0]:.2f} | ATR: {self.h4_atr[0]:.2f} | 成交量: {self.data_4h.volume[0]:.2f} | 成交量MA: {self.h4_volume_ma[0]:.2f}',
+            force=True,
+        )
         return signal
 
     def signal_expired(self):
@@ -616,6 +703,16 @@ class AdvancedStrategy(bt.Strategy):
                 and stats['is_bullish']
                 and self.h1_volume_ok(self.params.h1_retest_volume_ratio_threshold)
             )
+            # 添加指标数值和判断逻辑日志
+            self.log(
+                f'1H 回踩突破判断 | 方向: long | 价格: {self.data_1h.close[0]:.2f} | 最低价: {self.data_1h.low[0]:.2f} | '
+                f'回踩区间: [{breakout_level * (1 - self.params.h1_retest_hold_buffer):.2f} - {breakout_level * (1 + self.params.h1_retest_touch_buffer):.2f}] | '
+                f'确认要求: >={breakout_level * (1 + self.params.h1_retest_confirm_buffer):.2f} | '
+                f'实体比例: {stats["body_ratio"]:.3f} (要求>={self.params.h1_retest_body_ratio:.3f}) | '
+                f'多头收盘强度: {stats["bull_close_strength"]:.3f} (要求>={self.params.h1_retest_close_strength:.3f}) | '
+                f'是否看涨: {stats["is_bullish"]} | 成交量OK: {self.h1_volume_ok(self.params.h1_retest_volume_ratio_threshold)}',
+                force=True,
+            )
             return confirmed, '1H 回踩突破位不破，多头二次确认通过'
 
         confirmed = (
@@ -626,6 +723,16 @@ class AdvancedStrategy(bt.Strategy):
             and stats['bear_close_strength'] >= self.params.h1_retest_close_strength
             and stats['is_bearish']
             and self.h1_volume_ok(self.params.h1_retest_volume_ratio_threshold)
+        )
+        # 添加指标数值和判断逻辑日志
+        self.log(
+            f'1H 回踩突破判断 | 方向: short | 价格: {self.data_1h.close[0]:.2f} | 最高价: {self.data_1h.high[0]:.2f} | '
+            f'回踩区间: [{breakout_level * (1 - self.params.h1_retest_touch_buffer):.2f} - {breakout_level * (1 + self.params.h1_retest_hold_buffer):.2f}] | '
+            f'确认要求: <={breakout_level * (1 - self.params.h1_retest_confirm_buffer):.2f} | '
+            f'实体比例: {stats["body_ratio"]:.3f} (要求>={self.params.h1_retest_body_ratio:.3f}) | '
+            f'空头收盘强度: {stats["bear_close_strength"]:.3f} (要求>={self.params.h1_retest_close_strength:.3f}) | '
+            f'是否看跌: {stats["is_bearish"]} | 成交量OK: {self.h1_volume_ok(self.params.h1_retest_volume_ratio_threshold)}',
+            force=True,
         )
         return confirmed, '1H 回踩突破位不破，空头二次确认通过'
 
@@ -651,6 +758,15 @@ class AdvancedStrategy(bt.Strategy):
                 and stats['is_bullish']
                 and self.h1_volume_ok()
             )
+            # 添加指标数值和判断逻辑日志
+            self.log(
+                f'1H 突破判断 | 方向: long | 价格: {self.data_1h.close[0]:.2f} | '
+                f'突破要求: >{max(self.h1_donchian_high[-1], breakout_level) * (1 + self.params.h1_breakout_buffer):.2f} | '
+                f'实体比例: {stats["body_ratio"]:.3f} (要求>={self.params.h1_breakout_body_ratio:.3f}) | '
+                f'多头收盘强度: {stats["bull_close_strength"]:.3f} (要求>={self.params.h1_breakout_close_strength:.3f}) | '
+                f'是否看涨: {stats["is_bullish"]} | 成交量OK: {self.h1_volume_ok()}',
+                force=True,
+            )
             return confirmed, '1H Donchian 放量向上确认'
 
         confirmed = (
@@ -659,6 +775,15 @@ class AdvancedStrategy(bt.Strategy):
             and stats['bear_close_strength'] >= self.params.h1_breakout_close_strength
             and stats['is_bearish']
             and self.h1_volume_ok()
+        )
+        # 添加指标数值和判断逻辑日志
+        self.log(
+            f'1H 突破判断 | 方向: short | 价格: {self.data_1h.close[0]:.2f} | '
+            f'突破要求: <{min(self.h1_donchian_low[-1], breakout_level) * (1 - self.params.h1_breakout_buffer):.2f} | '
+            f'实体比例: {stats["body_ratio"]:.3f} (要求>={self.params.h1_breakout_body_ratio:.3f}) | '
+            f'空头收盘强度: {stats["bear_close_strength"]:.3f} (要求>={self.params.h1_breakout_close_strength:.3f}) | '
+            f'是否看跌: {stats["is_bearish"]} | 成交量OK: {self.h1_volume_ok()}',
+            force=True,
         )
         return confirmed, '1H Donchian 放量向下确认'
 
@@ -671,6 +796,15 @@ class AdvancedStrategy(bt.Strategy):
                 and stats['bull_close_strength'] >= self.params.h1_reversal_close_strength
                 and stats['is_bullish']
             )
+            # 添加指标数值和判断逻辑日志
+            self.log(
+                f'1H 反转判断 | 方向: long | 价格: {self.data_1h.close[0]:.2f} | '
+                f'上根K线收盘: {self.data_1h.close[-1]:.2f} (要求<={self.h1_boll.bot[-1]:.2f}) | '
+                f'当前布林下轨: {self.h1_boll.bot[0]:.2f} (要求>{self.h1_boll.bot[0]:.2f}) | '
+                f'多头收盘强度: {stats["bull_close_strength"]:.3f} (要求>={self.params.h1_reversal_close_strength:.3f}) | '
+                f'是否看涨: {stats["is_bullish"]}',
+                force=True,
+            )
             return confirmed, '1H 下轨反弹确认'
 
         confirmed = (
@@ -678,6 +812,15 @@ class AdvancedStrategy(bt.Strategy):
             and self.data_1h.close[0] < self.h1_boll.top[0]
             and stats['bear_close_strength'] >= self.params.h1_reversal_close_strength
             and stats['is_bearish']
+        )
+        # 添加指标数值和判断逻辑日志
+        self.log(
+            f'1H 反转判断 | 方向: short | 价格: {self.data_1h.close[0]:.2f} | '
+            f'上根K线收盘: {self.data_1h.close[-1]:.2f} (要求>={self.h1_boll.top[-1]:.2f}) | '
+            f'当前布林上轨: {self.h1_boll.top[0]:.2f} (要求<{self.h1_boll.top[0]:.2f}) | '
+            f'空头收盘强度: {stats["bear_close_strength"]:.3f} (要求>={self.params.h1_reversal_close_strength:.3f}) | '
+            f'是否看跌: {stats["is_bearish"]}',
+            force=True,
         )
         return confirmed, '1H 上轨回落确认'
 
@@ -710,18 +853,28 @@ class AdvancedStrategy(bt.Strategy):
         size = self.calculate_position_size(signal['direction'])
         if size <= 0:
             self.log('仓位计算结果为0，跳过本次信号', force=True)
+            self.log('没有成交: 仓位计算结果为0', force=True)
             self.pending_signal = None
             return
 
+        self.pending_exit_reason = None
         self.pending_entry_signal = signal.copy()
         self.log(
-            f'1H 入场确认 | 方向: {signal["direction"]} | 策略: {signal["strategy"]} | 数量: {size:.4f}',
+            f'1H 入场确认 | 方向: {signal["direction"]} | 策略: {signal["strategy"]} | 数量: {size:.4f} | '
+            f'开仓原因: {signal.get("confirm_reason", "-")}',
             force=True,
         )
         if signal['direction'] == 'long':
             self.order = self.buy(data=self.data_1h, size=size)
+            self.log('已提交买入订单', force=True)
         else:
             self.order = self.sell(data=self.data_1h, size=size)
+            self.log('已提交卖出订单', force=True)
+
+    def submit_close_order(self, reason):
+        self.pending_exit_reason = reason
+        self.order = self.close(data=self.data_1h)
+        self.log(f'已提交平仓订单 | 原因: {reason}', force=True)
 
     def manage_position(self, market_state):
         position = self.get_trade_position()
@@ -742,17 +895,21 @@ class AdvancedStrategy(bt.Strategy):
                     self.stop_loss = trailing_stop
 
             if self.stop_loss is not None and current_price <= self.stop_loss:
-                self.log(f'触发多头止损 | 当前价: {current_price:.2f} | 止损价: {self.stop_loss:.2f}', force=True)
-                self.order = self.close(data=self.data_1h)
+                reason = f'触发多头止损 | 当前价: {current_price:.2f} | 止损价: {self.stop_loss:.2f}'
+                self.log(reason, force=True)
+                self.submit_close_order(reason)
             elif strategy == 'mean_reversion' and self.take_profit is not None and current_price >= self.take_profit:
-                self.log(f'震荡多头止盈 | 当前价: {current_price:.2f} | 目标价: {self.take_profit:.2f}', force=True)
-                self.order = self.close(data=self.data_1h)
+                reason = f'震荡多头止盈 | 当前价: {current_price:.2f} | 目标价: {self.take_profit:.2f}'
+                self.log(reason, force=True)
+                self.submit_close_order(reason)
             elif is_trend_trade and market_state['state'] == 'bearish_trend':
-                self.log('日线切换为空头结构，平掉多头仓位', force=True)
-                self.order = self.close(data=self.data_1h)
+                reason = '日线切换为空头结构，平掉多头仓位'
+                self.log(reason, force=True)
+                self.submit_close_order(reason)
             elif is_trend_trade and self.trend_ema_exit_confirmed('long'):
-                self.log('4H 连续跌破 EMA21 缓冲区，趋势多头止盈/止退', force=True)
-                self.order = self.close(data=self.data_1h)
+                reason = '4H 连续跌破 EMA21 缓冲区，趋势多头止盈/止退'
+                self.log(reason, force=True)
+                self.submit_close_order(reason)
         else:
             if is_trend_trade:
                 self.update_trend_stop('short', current_price)
@@ -762,17 +919,21 @@ class AdvancedStrategy(bt.Strategy):
                     self.stop_loss = trailing_stop
 
             if self.stop_loss is not None and current_price >= self.stop_loss:
-                self.log(f'触发空头止损 | 当前价: {current_price:.2f} | 止损价: {self.stop_loss:.2f}', force=True)
-                self.order = self.close(data=self.data_1h)
+                reason = f'触发空头止损 | 当前价: {current_price:.2f} | 止损价: {self.stop_loss:.2f}'
+                self.log(reason, force=True)
+                self.submit_close_order(reason)
             elif strategy == 'mean_reversion' and self.take_profit is not None and current_price <= self.take_profit:
-                self.log(f'震荡空头止盈 | 当前价: {current_price:.2f} | 目标价: {self.take_profit:.2f}', force=True)
-                self.order = self.close(data=self.data_1h)
+                reason = f'震荡空头止盈 | 当前价: {current_price:.2f} | 目标价: {self.take_profit:.2f}'
+                self.log(reason, force=True)
+                self.submit_close_order(reason)
             elif is_trend_trade and market_state['state'] == 'bullish_trend':
-                self.log('日线切换为多头结构，平掉空头仓位', force=True)
-                self.order = self.close(data=self.data_1h)
+                reason = '日线切换为多头结构，平掉空头仓位'
+                self.log(reason, force=True)
+                self.submit_close_order(reason)
             elif is_trend_trade and self.trend_ema_exit_confirmed('short'):
-                self.log('4H 连续站上 EMA21 缓冲区，趋势空头止盈/止退', force=True)
-                self.order = self.close(data=self.data_1h)
+                reason = '4H 连续站上 EMA21 缓冲区，趋势空头止盈/止退'
+                self.log(reason, force=True)
+                self.submit_close_order(reason)
 
     def next(self):
         if not self.is_ready():
@@ -784,15 +945,10 @@ class AdvancedStrategy(bt.Strategy):
         
         # 打印关键指标值
         self.log('\n=== 指标数值 ===')
-        self.log(f'周线日期: {self.data_weekly.datetime.datetime(0)} | 周线EMA21: {self.weekly_ema_fast[0]:.2f}')
-        self.log(f'周线EMA55: {self.weekly_ema_slow[0]:.2f}')
-        self.log(f'周线ADX: {self.weekly_dmi.adx[0]:.2f}')
-        self.log(f'日线日期: {self.data_daily.datetime.datetime(0)} | 日线EMA21: {self.daily_ema_fast[0]:.2f}')
-        self.log(f'日线EMA55: {self.daily_ema_slow[0]:.2f}')
-        self.log(f'日线ADX: {self.daily_dmi.adx[0]:.2f}')
-        self.log(f'4H 日期: {self.data_4h.datetime.datetime(0)} | 4H ATR: {self.h4_atr[0]:.2f} (Binance标准: 14周期)')
-        self.log(f'4H EMA21: {self.h4_ema21[0]:.2f}')
-        self.log(f'1H 日期: {self.data_1h.datetime.datetime(0)} 1H price: {self.data_1h.close[0]:.2f} | 1H ATR: {self.h1_atr[0]:.2f} (Binance标准: 14周期)')
+        self.log(f'周线日期: {self.data_weekly.datetime.datetime(0)} | 周线EMA21: {self.weekly_ema_fast[0]:.2f}，周线EMA55: {self.weekly_ema_slow[0]:.2f}，周线ADX: {self.weekly_dmi.adx[0]:.2f}')
+        self.log(f'日线日期: {self.data_daily.datetime.datetime(0)} | 日线EMA21: {self.daily_ema_fast[0]:.2f}，日线EMA55: {self.daily_ema_slow[0]:.2f}，日线ADX: {self.daily_dmi.adx[0]:.2f}')
+        self.log(f'4H 日期: {self.data_4h.datetime.datetime(0)} | 4H ATR: {self.h4_atr[0]:.2f}，4H EMA21: {self.h4_ema21[0]:.2f}')
+        self.log(f'1H 日期: {self.data_1h.datetime.datetime(0)} 1H price: {self.data_1h.close[0]:.2f} | 1H ATR: {self.h1_atr[0]:.2f}')
 
         position = self.get_trade_position()
 
@@ -807,29 +963,39 @@ class AdvancedStrategy(bt.Strategy):
             new_signal = self.generate_h4_signal(weekly_context, market_state)
             if new_signal is not None:
                 self.pending_signal = new_signal
+            else:
+                self.log('没有信号生成: 市场条件不满足', force=True)
 
         if not self.pending_signal or (position and position.size) or self.order:
             return
 
         if self.pending_signal['state'] != market_state['state']:
             self.log('市场状态发生变化，撤销待执行信号', force=True)
+            self.log('没有成交: 市场状态发生变化', force=True)
             self.pending_signal = None
             return
 
         if self.signal_expired():
             self.log('1H 未在有效期内完成确认，信号失效', force=True)
+            self.log('没有成交: 信号过期', force=True)
             self.pending_signal = None
             return
 
         confirmed, reason = self.confirm_h1_entry(self.pending_signal)
         if self.pending_signal and self.pending_signal.get('invalidated'):
             self.log(reason, force=True)
+            self.log(f'没有成交: {reason}', force=True)
             self.pending_signal = None
             return
 
         if not confirmed:
+            if reason:
+                self.log(f'没有成交: {reason}', force=True)
+            else:
+                self.log('没有成交: 信号未确认', force=True)
             return
 
+        self.pending_signal['confirm_reason'] = reason
         self.log(reason, force=True)
         self.place_entry_order(self.pending_signal)
         if self.order:
