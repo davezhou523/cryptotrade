@@ -16,7 +16,7 @@ class AdvancedStrategy(bt.Strategy):
         ('daily_ema_slow', 55),  # 日线慢速EMA周期
         ('daily_boll_period', 20),  # 日线布林带周期
         ('daily_boll_dev', 2.0),  # 日线布林带标准差倍数
-        ('daily_adx_trend_threshold', 25),  # 日线ADX趋势阈值
+        ('daily_adx_trend_threshold', 23),  # 日线ADX趋势阈值
         ('daily_adx_sideways_threshold', 20),  # 日线ADX震荡阈值
         ('daily_boll_compression_threshold', 0.05),  # 日线布林带压缩阈值
         ('daily_boll_expansion_threshold', 0.10),  # 日线布林带扩张阈值
@@ -45,7 +45,7 @@ class AdvancedStrategy(bt.Strategy):
         ('require_breakout_retest', True),  # 是否需要突破回踩确认
         ('h1_retest_touch_buffer', 0.0015),  # 1小时回踩触碰缓冲
         ('h1_retest_hold_buffer', 0.0005),  # 1小时回踩保持缓冲
-        ('h1_retest_confirm_buffer', 0.0003),  # 1小时回踩确认缓冲
+        ('h1_retest_confirm_buffer', 0.0002),  # 1小时回踩确认缓冲
         ('h1_retest_body_ratio', 0.25),  # 1小时回踩K线实体比例
         ('h1_retest_close_strength', 0.55),  # 1小时回踩收盘强度
         ('h1_retest_volume_ratio_threshold', 1.10),  # 1小时回踩成交量比率阈值
@@ -894,10 +894,12 @@ class AdvancedStrategy(bt.Strategy):
                 if self.stop_loss is None or trailing_stop > self.stop_loss:
                     self.stop_loss = trailing_stop
 
-            if self.stop_loss is not None and current_price <= self.stop_loss:
-                reason = f'触发多头止损 | 当前价: {current_price:.2f} | 止损价: {self.stop_loss:.2f}'
+            if self.stop_loss is not None and self.data_1h.low[0] <= self.stop_loss:
+                trigger_price = self.data_1h.low[0]
+                reason = f'触发多头止损 | 触及价: {trigger_price:.2f} | 止损价: {self.stop_loss:.2f}'
                 self.log(reason, force=True)
                 self.submit_close_order(reason)
+
             elif strategy == 'mean_reversion' and self.take_profit is not None and current_price >= self.take_profit:
                 reason = f'震荡多头止盈 | 当前价: {current_price:.2f} | 目标价: {self.take_profit:.2f}'
                 self.log(reason, force=True)
@@ -918,8 +920,9 @@ class AdvancedStrategy(bt.Strategy):
                 if self.stop_loss is None or trailing_stop < self.stop_loss:
                     self.stop_loss = trailing_stop
 
-            if self.stop_loss is not None and current_price >= self.stop_loss:
-                reason = f'触发空头止损 | 当前价: {current_price:.2f} | 止损价: {self.stop_loss:.2f}'
+            if self.stop_loss is not None and self.data_1h.high[0] >= self.stop_loss:
+                trigger_price = self.data_1h.high[0]
+                reason = f'触发空头止损 | 触及价: {trigger_price:.2f} | 止损价: {self.stop_loss:.2f}'
                 self.log(reason, force=True)
                 self.submit_close_order(reason)
             elif strategy == 'mean_reversion' and self.take_profit is not None and current_price <= self.take_profit:
