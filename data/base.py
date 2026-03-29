@@ -46,8 +46,8 @@ def get_crypto_data(symbol: str, interval: str, start_year: int = 2025, end_year
     :return: Backtrader数据对象
     """
     # 验证参数
-    if interval not in ['1h', '1d', '4h', '1w']:
-        raise ValueError("时间间隔必须是 '1h'、'1d'、'4h' 或 '1w'")
+    if interval not in ['15m','1h', '1d', '4h', '1w']:
+        raise ValueError("时间间隔必须是 '15m'、 '1h'、'1d'、'4h' 或 '1w'")
     
     # 构造文件路径
     data_dir = os.path.join(os.path.dirname(__file__), symbol.upper())
