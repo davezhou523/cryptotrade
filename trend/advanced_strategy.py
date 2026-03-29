@@ -3,15 +3,11 @@ from trend.dmi import DMI
 
 
 class AdvancedStrategy(bt.Strategy):
-    """多周期市场结构策略：周线定趋势，日线定状态，4H出信号，1H执行。"""
+    """多周期市场结构策略：日线定状态，4H出信号，1H执行。"""
 
     params = (
         ('printlog', False),  # 是否打印日志
         ('eventlog', False),  # 是否打印事件日志
-        ('weekly_ema_fast', 21),  # 周线快速EMA周期
-        ('weekly_ema_slow', 55),  # 周线慢速EMA周期
-        ('weekly_adx_trend_threshold', 25),  # 周线ADX趋势阈值
-        ('weekly_adx_weak_threshold', 20),  # 周线ADX弱趋势阈值
         ('daily_ema_fast', 21),  # 日线快速EMA周期
         ('daily_ema_slow', 55),  # 日线慢速EMA周期
         ('daily_boll_period', 20),  # 日线布林带周期
@@ -63,10 +59,9 @@ class AdvancedStrategy(bt.Strategy):
     )
 
     def __init__(self):
-        self.data_weekly = self.datas[0]
-        self.data_daily = self.datas[1]
-        self.data_4h = self.datas[2]
-        self.data_1h = self.datas[3]
+        self.data_daily = self.datas[0]
+        self.data_4h = self.datas[1]
+        self.data_1h = self.datas[2]
 
         self.order = None
         self.pending_signal = None
@@ -84,7 +79,6 @@ class AdvancedStrategy(bt.Strategy):
         self.highest_since_entry = None
         self.lowest_since_entry = None
         self.last_4h_bar_time = None
-        self.last_macro_snapshot = None
         self.last_market_snapshot = None
         
         # 交易费用跟踪
@@ -100,10 +94,6 @@ class AdvancedStrategy(bt.Strategy):
         
         # 打印指标参数设置
         self.log('\n=== 指标参数设置 ===')
-        self.log(f'周线EMA21周期: {self.params.weekly_ema_fast}')
-        self.log(f'周线EMA55周期: {self.params.weekly_ema_slow}')
-        self.log(f'周线ADX趋势阈值: {self.params.weekly_adx_trend_threshold}')
-        self.log(f'周线ADX弱趋势阈值: {self.params.weekly_adx_weak_threshold}')
         self.log(f'日线EMA21周期: {self.params.daily_ema_fast}')
         self.log(f'日线EMA55周期: {self.params.daily_ema_slow}')
         self.log(f'日线布林带周期: {self.params.daily_boll_period}, 标准差: {self.params.daily_boll_dev}')
@@ -119,10 +109,6 @@ class AdvancedStrategy(bt.Strategy):
         self.log(f'1H布林带周期: {self.params.h1_boll_period}, 标准差: {self.params.h1_boll_dev}')
         self.log(f'1H ATR周期: {self.params.atr_period} (与Binance一致)')
         self.log(f'成交量MA周期: {self.params.volume_ma_period}')
-
-        self.weekly_ema_fast = bt.indicators.EMA(self.data_weekly.close, period=self.params.weekly_ema_fast)
-        self.weekly_ema_slow = bt.indicators.EMA(self.data_weekly.close, period=self.params.weekly_ema_slow)
-        self.weekly_dmi = DMI(self.data_weekly, period=self.params.dmi_period)
 
         self.daily_ema_fast = bt.indicators.EMA(self.data_daily.close, period=self.params.daily_ema_fast)
         self.daily_ema_slow = bt.indicators.EMA(self.data_daily.close, period=self.params.daily_ema_slow)
@@ -156,7 +142,6 @@ class AdvancedStrategy(bt.Strategy):
         self.h1_atr = bt.indicators.ATR(self.data_1h, period=self.params.atr_period)
         self.h1_volume_ma = bt.indicators.SMA(self.data_1h.volume, period=self.params.volume_ma_period)
 
-        self.weekly_min_bars = max(self.params.weekly_ema_slow, self.params.dmi_period * 2)
         self.daily_min_bars = max(
             self.params.daily_ema_slow,
             self.params.daily_boll_period,
@@ -428,35 +413,12 @@ class AdvancedStrategy(bt.Strategy):
 
     def is_ready(self):
         return (
-            len(self.data_weekly) >= self.weekly_min_bars
-            and len(self.data_daily) >= self.daily_min_bars
+            len(self.data_daily) >= self.daily_min_bars
             and len(self.data_4h) >= self.h4_min_bars
             and len(self.data_1h) >= self.h1_min_bars
         )
 
-    def get_weekly_context(self):
-        adx = self.weekly_dmi.adx[0]
-        if self.weekly_ema_fast[0] > self.weekly_ema_slow[0]:
-            trend = 'bull'
-        elif self.weekly_ema_fast[0] < self.weekly_ema_slow[0]:
-            trend = 'bear'
-        else:
-            trend = 'neutral'
-
-        if adx > self.params.weekly_adx_trend_threshold:
-            strength = 'strong'
-        elif adx < self.params.weekly_adx_weak_threshold:
-            strength = 'weakening'
-        else:
-            strength = 'normal'
-
-        return {
-            'trend': trend,
-            'strength': strength,
-            'adx': adx,
-        }
-
-    def get_daily_market_state(self, weekly_context):
+    def get_daily_market_state(self):
         adx = self.daily_dmi.adx[0]
         boll_width = self.daily_boll_width[0]
         bullish = self.daily_ema_fast[0] > self.daily_ema_slow[0]
@@ -474,10 +436,6 @@ class AdvancedStrategy(bt.Strategy):
             state = 'bullish_trend'
         elif bearish and boll_width > self.params.daily_boll_expansion_threshold:
             state = 'bearish_trend'
-        elif weekly_context['trend'] == 'bull' and bullish:
-            state = 'bullish_trend'
-        elif weekly_context['trend'] == 'bear' and bearish:
-            state = 'bearish_trend'
         else:
             state = 'transition'
 
@@ -489,17 +447,8 @@ class AdvancedStrategy(bt.Strategy):
             'bearish': bearish,
         }
 
-    def log_context_change(self, weekly_context, market_state):
-        macro_snapshot = (weekly_context['trend'], weekly_context['strength'])
+    def log_context_change(self, market_state):
         market_snapshot = market_state['state']
-
-        if macro_snapshot != self.last_macro_snapshot:
-            self.last_macro_snapshot = macro_snapshot
-            self.log(
-                f'周线趋势切换 | 趋势: {weekly_context["trend"]} | 强度: {weekly_context["strength"]} | '
-                f'ADX: {weekly_context["adx"]:.2f}',
-                force=True,
-            )
 
         if market_snapshot != self.last_market_snapshot:
             self.last_market_snapshot = market_snapshot
@@ -579,13 +528,13 @@ class AdvancedStrategy(bt.Strategy):
             and stats['is_bearish']
         )
 
-    def generate_h4_signal(self, weekly_context, market_state):
+    def generate_h4_signal(self, market_state):
         state = market_state['state']
         signal = None
         breakout_high = self.h4_donchian_high[-1]
         breakout_low = self.h4_donchian_low[-1]
 
-        if state == 'bullish_trend' and weekly_context['trend'] == 'bull' and weekly_context['strength'] != 'weakening':
+        if state == 'bullish_trend':
             if self.valid_h4_breakout('long', breakout_high):
                 signal = {
                     'direction': 'long',
@@ -600,7 +549,7 @@ class AdvancedStrategy(bt.Strategy):
                     'trigger': 'pullback',
                     'reference_level': self.h4_ema21[0],
                 }
-        elif state == 'bearish_trend' and weekly_context['trend'] == 'bear' and weekly_context['strength'] != 'weakening':
+        elif state == 'bearish_trend':
             if self.valid_h4_breakout('short', breakout_low):
                 signal = {
                     'direction': 'short',
@@ -630,15 +579,15 @@ class AdvancedStrategy(bt.Strategy):
                     'trigger': 'pullback',
                     'reference_level': self.h4_boll.top[0],
                 }
-        elif state == 'breakout_setup' and weekly_context['strength'] != 'weakening':
-            if weekly_context['trend'] == 'bull' and market_state['bullish'] and self.valid_h4_breakout('long', breakout_high):
+        elif state == 'breakout_setup':
+            if market_state['bullish'] and self.valid_h4_breakout('long', breakout_high):
                 signal = {
                     'direction': 'long',
                     'strategy': 'breakout',
                     'trigger': 'breakout',
                     'breakout_level': breakout_high,
                 }
-            elif weekly_context['trend'] == 'bear' and market_state['bearish'] and self.valid_h4_breakout('short', breakout_low):
+            elif market_state['bearish'] and self.valid_h4_breakout('short', breakout_low):
                 signal = {
                     'direction': 'short',
                     'strategy': 'breakout',
@@ -942,13 +891,11 @@ class AdvancedStrategy(bt.Strategy):
         if not self.is_ready():
             return
 
-        weekly_context = self.get_weekly_context()
-        market_state = self.get_daily_market_state(weekly_context)
-        self.log_context_change(weekly_context, market_state)
+        market_state = self.get_daily_market_state()
+        self.log_context_change(market_state)
         
         # 打印关键指标值
         self.log('\n=== 指标数值 ===')
-        self.log(f'周线日期: {self.data_weekly.datetime.datetime(0)} | 周线EMA21: {self.weekly_ema_fast[0]:.2f}，周线EMA55: {self.weekly_ema_slow[0]:.2f}，周线ADX: {self.weekly_dmi.adx[0]:.2f}')
         self.log(f'日线日期: {self.data_daily.datetime.datetime(0)} | 日线EMA21: {self.daily_ema_fast[0]:.2f}，日线EMA55: {self.daily_ema_slow[0]:.2f}，日线ADX: {self.daily_dmi.adx[0]:.2f}')
         self.log(f'4H 日期: {self.data_4h.datetime.datetime(0)} | 4H ATR: {self.h4_atr[0]:.2f}，4H EMA21: {self.h4_ema21[0]:.2f}')
         self.log(f'1H 日期: {self.data_1h.datetime.datetime(0)} 1H price: {self.data_1h.close[0]:.2f} | 1H ATR: {self.h1_atr[0]:.2f}')
@@ -963,7 +910,7 @@ class AdvancedStrategy(bt.Strategy):
         current_4h_time = self.data_4h.datetime.datetime(0)
         if (not position or not position.size) and self.last_4h_bar_time != current_4h_time:
             self.last_4h_bar_time = current_4h_time
-            new_signal = self.generate_h4_signal(weekly_context, market_state)
+            new_signal = self.generate_h4_signal(market_state)
             if new_signal is not None:
                 self.pending_signal = new_signal
             else:

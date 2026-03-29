@@ -14,7 +14,6 @@ from trend.advanced_strategy import AdvancedStrategy
 DEFAULT_SINGLE_PARAMS = {
     'printlog': True,
     'eventlog': True,
-    'weekly_adx_trend_threshold': 25,
     'daily_adx_trend_threshold': 25,
     'daily_boll_compression_threshold': 0.05,
     'daily_boll_expansion_threshold': 0.10,
@@ -195,18 +194,15 @@ def build_cerebro(symbol, start_year, end_year, strategy_params=None):
     strategy_params = strategy_params or {}
     cerebro = bt.Cerebro()
 
-    initial_cash = 10000
+    initial_cash = 5000
     cerebro.broker.setcash(initial_cash)
     cerebro.broker.set_shortcash(True)
-    cerebro.broker.setcommission(commission=0.001, margin=1.0, stocklike=True)
+    cerebro.broker.setcommission(commission=0.001, margin=0.2, stocklike=False)
     cerebro.broker.set_slippage_perc(0.001)
     cerebro.broker.set_slippage_fixed(0.01)
     cerebro.broker.set_coc(True)
 
     trend_start_year = max(start_year - 1, 2017)
-
-    data_weekly = get_crypto_data(symbol, '1w', max(start_year - 5, 2017), end_year)
-    cerebro.adddata(data_weekly, name='weekly')
 
     data_daily = get_crypto_data(symbol, '1d', trend_start_year, end_year)
     cerebro.adddata(data_daily, name='daily')
@@ -403,7 +399,6 @@ def build_base_params(args):
     params.update({
         'printlog': args.printlog,
         'eventlog': args.eventlog,
-        'weekly_adx_trend_threshold': args.weekly_adx_trend_threshold,
         'daily_adx_trend_threshold': args.daily_adx_trend_threshold,
         'daily_boll_compression_threshold': args.daily_boll_compression_threshold,
         'daily_boll_expansion_threshold': args.daily_boll_expansion_threshold,
@@ -462,7 +457,6 @@ def parse_args():
     parser.add_argument('--eventlog', action='store_true', help='输出关键事件日志')
     parser.add_argument('--verbose-search', action='store_true', help='输出参数搜索进度明细')
 
-    parser.add_argument('--weekly-adx-trend-threshold', type=int, default=DEFAULT_SINGLE_PARAMS['weekly_adx_trend_threshold'])
     parser.add_argument('--daily-adx-trend-threshold', type=int, default=DEFAULT_SINGLE_PARAMS['daily_adx_trend_threshold'])
     parser.add_argument('--daily-boll-compression-threshold', type=float, default=DEFAULT_SINGLE_PARAMS['daily_boll_compression_threshold'])
     parser.add_argument('--daily-boll-expansion-threshold', type=float, default=DEFAULT_SINGLE_PARAMS['daily_boll_expansion_threshold'])
