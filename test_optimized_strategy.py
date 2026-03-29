@@ -7,7 +7,8 @@
 import backtrader as bt
 import pandas as pd
 from datetime import datetime
-from trend.multi_period_strategy import MultiPeriodStrategy
+from trend.strategy3 import Strategy3
+
 
 def test_optimized_strategy():
     """测试优化后的策略"""
@@ -15,6 +16,12 @@ def test_optimized_strategy():
     # 创建回测引擎
     cerebro = bt.Cerebro()
     cerebro.broker.setcash(5000.0)
+    # 真实模拟合约交易环境：5x杠杆 + 手续费 + 滑点
+    cerebro.broker.set_shortcash(True)
+    cerebro.broker.setcommission(commission=0.001, margin=0.2, stocklike=False)
+    cerebro.broker.set_slippage_perc(0.001)
+    cerebro.broker.set_coc(True)
+
     
     # 添加多周期数据
     # 使用2025年ETH数据
@@ -57,20 +64,34 @@ def test_optimized_strategy():
     
     # 设置策略参数
     cerebro.addstrategy(
-        MultiPeriodStrategy,
+        Strategy3,
+
         # 优化参数
-        risk_per_trade=0.015,  # 1.5%风险
+        risk_per_trade=0.01,  # 1.0%风险（提升稳健性）
+
         leverage=5.0,          # 5倍杠杆
         max_leverage_ratio=0.8, # 最大杠杆使用率80%
         volatility_scaling=True, # 波动性仓位调整
         dynamic_risk_adjustment=True, # 动态风险调整
+        require_both_entry_signals=False, # 先恢复触发率，避免0交易
+
         printlog=True,         # 打印详细日志
         eventlog=True         # 记录重要事件
+
     )
     
     # 添加分析器
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name="trades")
-    cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name="sharpe")
+    # 覆盖期仅一年，按日收益计算并年化，避免Years粒度导致夏普为空
+    cerebro.addanalyzer(
+        bt.analyzers.SharpeRatio_A,
+        _name="sharpe",
+        timeframe=bt.TimeFrame.Days,
+        compression=1,
+        riskfreerate=0.0,
+        annualize=True,
+    )
+
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name="drawdown")
     
     # 运行回测
