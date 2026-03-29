@@ -67,10 +67,12 @@ def test_optimized_strategy():
         Strategy3,
 
         # 优化参数
-        risk_per_trade=0.01,  # 1.0%风险（提升稳健性）
+        risk_per_trade=0.012,  # 1.2%风险（小幅提升收益效率）
 
-        leverage=5.0,          # 5倍杠杆
-        max_leverage_ratio=0.8, # 最大杠杆使用率80%
+        leverage=5.0,           # 5倍杠杆
+        max_leverage_ratio=0.85, # 最大杠杆使用率85%
+        max_position_size=0.28,  # 资金利用率小幅提升
+
         volatility_scaling=True, # 波动性仓位调整
         dynamic_risk_adjustment=True, # 动态风险调整
         require_both_entry_signals=False, # 先恢复触发率，避免0交易

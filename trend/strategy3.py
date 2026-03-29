@@ -20,14 +20,17 @@ class Strategy3(bt.Strategy):
 
         # 风控与仓位
         ('risk_per_trade', 0.015),          # 单笔风险 <=2%
-        ('max_position_size', 0.25),        # 普通上限
+        ('max_position_size', 0.28),        # 普通上限（小幅提升资金利用率）
         ('deep_pullback_scale', 0.6),       # 深回调轻仓
         ('pullback_deep_band', 0.003),      # 贴近EMA55判定带
         ('stop_loss_atr_multiplier', 2.0),  # 止损=2ATR
+        ('min_holding_bars', 4),            # 最小持仓K线，避免刚入场被EMA噪音洗出
+        ('ema_exit_confirm_bars', 2),       # EMA破位连续确认
+        ('ema_exit_buffer_atr', 0.2),       # EMA破位缓冲（ATR倍数）
 
         # 杠杆约束
         ('leverage', 5.0),
-        ('max_leverage_ratio', 0.8),
+        ('max_leverage_ratio', 0.85),
 
         # 风险限制
         ('max_positions', 1),
@@ -92,6 +95,8 @@ class Strategy3(bt.Strategy):
         self.daily_start_value = self.broker.getvalue()
         self.max_portfolio_value = self.broker.getvalue()
         self.drawdown_position_scale = 1.0
+        self.bars_since_entry = 0
+        self.ema_break_count = 0
 
         self.log('=== Strategy3 初始化完成 ===', force=True)
 
@@ -114,6 +119,8 @@ class Strategy3(bt.Strategy):
                 self.entry_time = bt.num2date(order.executed.dt)
                 self.stop_moved_to_cost = False
                 self.partial_take_profit_done = False
+                self.bars_since_entry = 0
+                self.ema_break_count = 0
                 self.log(
                     f'{"做多" if self.entry_direction == "long" else "做空"}入场: '
                     f'价格{order.executed.price:.2f} 数量{abs(order.executed.size):.4f} '
@@ -133,6 +140,8 @@ class Strategy3(bt.Strategy):
                     self.stop_moved_to_cost = False
                     self.partial_take_profit_done = False
                     self.pullback_scale = 1.0
+                    self.bars_since_entry = 0
+                    self.ema_break_count = 0
 
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
             self.log('订单取消/保证金不足/拒单', force=True)
@@ -331,6 +340,9 @@ class Strategy3(bt.Strategy):
             return None
 
         price = self.data_15m.close[0]
+        ema = self.m15_ema21[0]
+        atr = self.m15_atr[0]
+        ema_buffer = atr * self.params.ema_exit_buffer_atr if atr > 0 else 0
 
         if self.entry_direction == 'long':
             if price <= self.stop_loss:
@@ -345,8 +357,12 @@ class Strategy3(bt.Strategy):
                 self.partial_take_profit_done = True
                 return 'take_profit_partial'
 
-            if price < self.m15_ema21[0]:
-                return 'ema_break_exit'
+            if self.bars_since_entry >= self.params.min_holding_bars and price < (ema - ema_buffer):
+                self.ema_break_count += 1
+                if self.ema_break_count >= self.params.ema_exit_confirm_bars:
+                    return 'ema_break_exit'
+            else:
+                self.ema_break_count = 0
 
         else:
             if price >= self.stop_loss:
@@ -361,8 +377,12 @@ class Strategy3(bt.Strategy):
                 self.partial_take_profit_done = True
                 return 'take_profit_partial'
 
-            if price > self.m15_ema21[0]:
-                return 'ema_break_exit'
+            if self.bars_since_entry >= self.params.min_holding_bars and price > (ema + ema_buffer):
+                self.ema_break_count += 1
+                if self.ema_break_count >= self.params.ema_exit_confirm_bars:
+                    return 'ema_break_exit'
+            else:
+                self.ema_break_count = 0
 
         return None
 
@@ -377,6 +397,9 @@ class Strategy3(bt.Strategy):
 
         if self.order:
             return
+
+        if self.current_position:
+            self.bars_since_entry += 1
 
         exit_reason = self.check_exit_conditions()
         if exit_reason:
