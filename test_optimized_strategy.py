@@ -26,9 +26,9 @@ def test_optimized_strategy():
     # 添加多周期数据
     # 使用2025年ETH数据
     data_files = [
-        ('4H', 'data/ETH/ethusdt_4h_20170101_20171231.csv'),
-        ('1H', 'data/ETH/ethusdt_1h_20170101_20171231.csv'),
-        ('15M', 'data/ETH/ethusdt_15m_20170101_20171231.csv')
+        ('4H', 'data/ETH/binance/ethusdt_4h_20260101_20260404.csv'),
+        ('1H', 'data/ETH/binance/ethusdt_1h_20260101_20260404.csv'),
+        ('15M', 'data/ETH/binance/ethusdt_15m_20260101_20260404.csv')
     ]
     
     datas = []
@@ -36,7 +36,10 @@ def test_optimized_strategy():
         try:
             # 读取CSV数据
             df = pd.read_csv(filepath, parse_dates=['datetime'], index_col='datetime')
-            
+            if df.empty:
+                print(f"跳过空数据文件 {timeframe}: {filepath}")
+                continue
+
             # 创建数据源
             data = bt.feeds.PandasData(
                 dataname=df,
@@ -48,14 +51,14 @@ def test_optimized_strategy():
                 volume='volume'
             )
             datas.append(data)
-            print(f"成功加载 {timeframe} 数据: {filepath}")
+            print(f"成功加载 {timeframe} 数据: {filepath}，共 {len(df)} 行")
         except Exception as e:
             print(f"加载数据失败 {filepath}: {e}")
             # 如果某个周期数据不存在，使用其他周期数据
             continue
     
-    if not datas:
-        print("错误: 没有找到可用的数据文件")
+    if len(datas) < 3:
+        print(f"错误: 有效数据不足，期望3个周期(4H/1H/15M)，实际 {len(datas)} 个")
         return
     
     # 添加数据到回测引擎

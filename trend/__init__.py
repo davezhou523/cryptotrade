@@ -2,7 +2,6 @@ from .dmi import DMI
 from .ema import CustomEMA
 from .stochasticRSI import StochasticRSI
 from .trend import TrendDetector
-from .strategy2 import Strategy2
 from .strategy3 import Strategy3
 
 

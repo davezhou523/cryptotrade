@@ -55,7 +55,7 @@ def main():
     intervals = ["5m", "15m", "1h", "4h", "1d"]
     now_utc = datetime.now(timezone.utc)
 
-    for year in range(2017, 2027):
+    for year in range(2018, 2019):
         start_time = datetime(year, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         end_time = datetime(year, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
         end_time = min(end_time, now_utc)
