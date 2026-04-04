@@ -16,12 +16,17 @@ class BinanceDataFetcher(DataFetcher):
     Binance数据获取器，实现从Binance获取K线数据的功能
     """
     
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str = None, market_type: str = "spot"):
         """
         初始化Binance数据获取器
         :param api_key: Binance API密钥（可选，部分接口需要）
+        :param market_type: 市场类型，"spot" 或 "futures"
         """
-        self.base_url = "https://api.binance.com/api/v3/klines"
+        self.market_type = market_type.lower()
+        if self.market_type == "futures":
+            self.base_url = "https://fapi.binance.com/fapi/v1/klines"
+        else:
+            self.base_url = "https://api.binance.com/api/v3/klines"
         self.api_key = api_key
         self.limit = 1000  # Binance API最大限制
         self.interval_map = {
