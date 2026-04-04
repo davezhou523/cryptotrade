@@ -26,9 +26,9 @@ def test_optimized_strategy():
     # 添加多周期数据
     # 使用2025年ETH数据
     data_files = [
-        ('4H', 'data/ETH/ethusdt_4h_20250101_20251231.csv'),
-        ('1H', 'data/ETH/ethusdt_1h_20250101_20251231.csv'),
-        ('15M', 'data/ETH/ethusdt_15m_20250101_20251231.csv')
+        ('4H', 'data/ETH/ethusdt_4h_20170101_20171231.csv'),
+        ('1H', 'data/ETH/ethusdt_1h_20170101_20171231.csv'),
+        ('15M', 'data/ETH/ethusdt_15m_20170101_20171231.csv')
     ]
     
     datas = []
@@ -66,16 +66,22 @@ def test_optimized_strategy():
     cerebro.addstrategy(
         Strategy3,
 
-        # 优化参数
-        risk_per_trade=0.012,  # 1.2%风险（小幅提升收益效率）
+        # 优化参数（低回撤优先，保持原框架）
+        risk_per_trade=0.012,    # 轻降单笔风险，优先压回撤
 
-        leverage=5.0,           # 5倍杠杆
-        max_leverage_ratio=0.85, # 最大杠杆使用率85%
-        max_position_size=0.28,  # 资金利用率小幅提升
+        leverage=5.0,             # 5倍杠杆
+        max_leverage_ratio=0.85,  # 最大杠杆使用率85%
+        max_position_size=0.26,   # 降低峰值仓位
 
-        volatility_scaling=True, # 波动性仓位调整
-        dynamic_risk_adjustment=True, # 动态风险调整
-        require_both_entry_signals=False, # 先恢复触发率，避免0交易
+        # 压缩 ema_break_exit 噪音退出
+        min_holding_bars=5,
+        ema_exit_confirm_bars=3,
+        ema_exit_buffer_atr=0.28,
+
+        volatility_scaling=True,          # 波动性仓位调整
+        dynamic_risk_adjustment=True,     # 动态风险调整
+        require_both_entry_signals=False,  # 提高信号质量，降低噪音交易
+
 
         printlog=True,         # 打印详细日志
         eventlog=True         # 记录重要事件

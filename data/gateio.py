@@ -93,6 +93,14 @@ class GateioDataFetcher(DataFetcher):
         all_data = []
         current_start_time = int(start_time.timestamp())  # 秒级时间戳
         end_time_sec = int(end_time.timestamp())  # 秒级时间戳
+        now_sec = int(datetime.now(timezone.utc).timestamp())
+
+        # Gate 不接受未来时间范围
+        if current_start_time > now_sec:
+            print(f"{symbol} {interval} 开始时间在未来，跳过。")
+            return None
+        if end_time_sec > now_sec:
+            end_time_sec = now_sec
         
         # 转换时间间隔
         gate_interval = self.interval_map.get(interval, '4h')
@@ -108,7 +116,36 @@ class GateioDataFetcher(DataFetcher):
         interval_ms = self._get_interval_ms(interval)
         interval_sec = interval_ms // 1000
         max_points_per_request = 1000
-        max_seconds_per_request = interval_sec * max_points_per_request
+        # Gate 返回区间通常按闭区间计算，避免触发 1001 根K线报错
+        max_seconds_per_request = interval_sec * (max_points_per_request - 1)
+
+        def _align_to_interval(ts: int) -> int:
+            return ts - (ts % interval_sec)
+
+        # 对齐到K线边界，避免因为秒级偏移触发范围错误
+        current_start_time = _align_to_interval(current_start_time)
+        end_time_sec = _align_to_interval(end_time_sec)
+        if current_start_time >= end_time_sec:
+            print(f"{symbol} {interval} 时间范围无有效K线，跳过。")
+            return None
+
+        # Gate 对历史K线有最大回溯点数限制（常见为最多 10000 根）
+        # 预留安全缓冲，避免边界抖动触发 too long ago
+        max_lookback_points = 10000
+        lookback_safe_buffer = 50
+        oldest_allowed_sec = _align_to_interval(
+            now_sec - ((max_lookback_points - lookback_safe_buffer) * interval_sec)
+        )
+        if current_start_time < oldest_allowed_sec:
+            if end_time_sec <= oldest_allowed_sec:
+                print(
+                    f"{symbol} {interval} 请求区间过早，超出 Gate 可回溯范围，已跳过。"
+                )
+                return None
+            print(
+                f"{symbol} {interval} 起始时间过早，已自动调整到可回溯范围内。"
+            )
+            current_start_time = oldest_allowed_sec
         
         try:
             # 循环请求数据，直到获取所有数据
@@ -128,6 +165,7 @@ class GateioDataFetcher(DataFetcher):
                 url = f"{self.base_url}{api_path}"
                 
                 # 发送请求，带重试机制
+                data = None
                 for attempt in range(max_retries):
                     try:
                         # 发送请求，增加超时设置和代理
@@ -148,13 +186,36 @@ class GateioDataFetcher(DataFetcher):
                         data = response.json()
                         break  # 成功获取数据，退出重试循环
                     except requests.exceptions.RequestException as e:
+                        response_text = ""
+                        if getattr(e, 'response', None) is not None:
+                            response_text = e.response.text
+
                         print(f"请求错误 (尝试 {attempt+1}/{max_retries}): {e}")
+                        if response_text:
+                            print(f"返回:{response_text}")
+
+                        if "Candlestick too long ago" in response_text:
+                            now_sec = int(datetime.now(timezone.utc).timestamp())
+                            new_start = _align_to_interval(
+                                now_sec - ((max_lookback_points - lookback_safe_buffer) * interval_sec)
+                            )
+                            if new_start >= end_time_sec:
+                                print(f"{symbol} {interval} 超出 Gate 历史回溯范围，跳过该时间段。")
+                                return None
+                            if new_start > current_start_time:
+                                print(f"{symbol} {interval} 回溯边界收紧，自动前移起点后重试。")
+                                current_start_time = new_start
+                            data = None
+                            break
+
                         if attempt < max_retries - 1:
                             time.sleep(retry_delay)
                             retry_delay *= 2  # 指数退避
                         else:
                             raise
-                
+
+                if data is None:
+                    continue
                 if not data:
                     break  # 没有更多数据
                 
@@ -163,7 +224,7 @@ class GateioDataFetcher(DataFetcher):
                 
                 # 获取最后一条数据的时间戳，作为下一次请求的开始时间
                 if data:
-                    last_timestamp = data[-1][0]
+                    last_timestamp = int(data[-1][0])
                     current_start_time = last_timestamp + interval_sec
                 else:
                     # 如果没有数据，增加一个时间间隔
@@ -179,7 +240,8 @@ class GateioDataFetcher(DataFetcher):
             # 处理数据格式，使其适合Backtrader
             processed_data = []
             for item in all_data:
-                timestamp = datetime.fromtimestamp(item[0], timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+                ts = int(item[0])
+                timestamp = datetime.fromtimestamp(ts, timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
                 processed_data.append([
                     timestamp,
                     float(item[2]),  # open
