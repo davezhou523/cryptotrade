@@ -18,23 +18,54 @@ ROOT = Path(__file__).resolve().parent
 
 # 策略参数配置
 PARAMS = dict(
-    risk_per_trade=0.03,            # 单笔交易风险，占总资金的3.0%（原2.5%）
-    leverage=5.0,                   # 杠杆倍数，5倍杠杆
-    max_leverage_ratio=0.95,        # 最大杠杆使用率，不超过保证金的95%（原90%）
-    max_position_size=0.45,         # 最大仓位规模，不超过总资金的45%（原40%）
-    min_holding_bars=5,             # 最小持仓K线数，避免刚入场就被EMA噪音洗出（原6）
-    ema_exit_confirm_bars=2,        # EMA破位连续确认K线数，需连续2根K线确认
-    ema_exit_buffer_atr=0.30,       # EMA破位缓冲带，以ATR的30%作为缓冲（原20%）
-    volatility_scaling=True,        # 波动率缩放，根据市场波动调整仓位
-    dynamic_risk_adjustment=True,   # 动态风险调整，根据回撤调整仓位规模
+    # 日志控制
+    printlog=True,                  # 打印普通日志（每笔交易等）
+    eventlog=True,                  # 打印重要事件日志（入场、出场、风控触发等）
+
+    # 周期参数 - 各时间周期的指标参数
+    h4_ema_fast=21,                # 4小时图快速EMA周期
+    h4_ema_slow=55,                # 4小时图慢速EMA周期
+    h1_ema_fast=21,                # 1小时图快速EMA周期
+    h1_ema_slow=55,                # 1小时图慢速EMA周期
+    h1_rsi_period=14,              # 1小时图RSI周期
+    m15_ema_period=21,             # 15分钟图EMA周期（用于出场判断）
+    m15_atr_period=14,             # 15分钟图ATR周期（用于止损和仓位计算）
+    m15_rsi_period=14,             # 15分钟图RSI周期（用于入场信号）
+
+    # 风控与仓位 - 风险管理和仓位大小计算
+    risk_per_trade=0.03,           # 单笔风险，占总资金的3.0%（原1.6%）
+    max_position_size=0.55,        # 最大仓位规模（占总资金比例）
+    deep_pullback_scale=0.9,       # 深回调轻仓系数，价格接近EMA55时仓位打9折（原6折）
+    pullback_deep_band=0.003,      # 贴近EMA55判定带（0.3%），价格与EMA55距离小于此值视为深回调
+    stop_loss_atr_multiplier=1.5,  # 止损距离=1.5×ATR（原2.0）
+    min_holding_bars=5,            # 最小持仓K线数，避免刚入场就被EMA噪音洗出（原4）
+    ema_exit_confirm_bars=2,       # EMA破位连续确认K线数，需连续2根K线确认破位
+    ema_exit_buffer_atr=0.30,      # EMA破位缓冲带（ATR倍数），提供一定容错空间（原0.2）
+
+    # 杠杆约束 - 保证金交易参数
+    leverage=7.0,                  # 杠杆倍数，7倍杠杆（原5倍）
+    max_leverage_ratio=0.92,       # 最大杠杆使用率，不超过保证金的92%（原90%）
+
+    # 风险限制 - 全局风险控制
+    max_positions=1,               # 最大同时持仓数，只允许单笔交易
+    max_consecutive_losses=3,      # 最大连续亏损次数，达到后暂停交易
+    max_daily_loss_pct=0.07,       # 最大日亏损比例（7%），达到后当日停止交易（原5%）
+    max_drawdown_pct=0.15,         # 最大回撤比例（15%），达到后仓位规模减半（原10%）
+    drawdown_position_scale=0.5,   # 回撤仓位缩放系数，回撤达到阈值时仓位打5折
+
+    # 过滤 - 信号过滤条件
     require_both_entry_signals=False, # 是否需要同时满足结构突破和RSI信号
-    printlog=True,                  # 打印普通日志
-    eventlog=True,                  # 打印重要事件日志
-    # 新增风险控制参数
-    max_drawdown_pct=0.15,          # 最大回撤比例（15%），达到后仓位规模减半（原10%）
-    max_daily_loss_pct=0.07,        # 最大日亏损比例（7%），达到后当日停止交易（原5%）
-    deep_pullback_scale=0.9,        # 深回调轻仓系数，价格接近EMA55时仓位打9折（原8折）
-    stop_loss_atr_multiplier=1.5,   # 止损距离=1.5×ATR（原1.8）
+    h1_rsi_long_low=42,            # 1小时图多头RSI下限，RSI>42才考虑做多
+    h1_rsi_long_high=60,           # 1小时图多头RSI上限，RSI<60才考虑做多
+    h1_rsi_short_low=40,           # 1小时图空头RSI下限，RSI>40才考虑做空
+    h1_rsi_short_high=58,          # 1小时图空头RSI上限，RSI<58才考虑做空
+    m15_breakout_lookback=6,       # 15分钟图突破结构回顾期（K线数）
+    m15_rsi_bias_long=52,          # 15分钟图多头RSI偏置，RSI>=52视为偏多
+    m15_rsi_bias_short=48,         # 15分钟图空头RSI偏置，RSI<=48视为偏空
+
+    # 兼容测试脚本参数
+    volatility_scaling=True,       # 波动率缩放，根据市场波动调整仓位
+    dynamic_risk_adjustment=True,  # 动态风险调整，根据回撤调整仓位规模
 )
 
 
@@ -59,8 +90,8 @@ def run_year(year: int) -> str:
     with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
         # 创建回测引擎
         cerebro = bt.Cerebro()
-        # 设置初始资金为5000 USDT
-        cerebro.broker.setcash(5000.0)
+        # 设置初始资金为10000 USDT（原5000）
+        cerebro.broker.setcash(10000.0)
         # 允许做空
         cerebro.broker.set_shortcash(True)
         # 设置交易佣金：0.1%，保证金20%，非股票模式（期货/杠杆交易）
@@ -91,12 +122,13 @@ def run_year(year: int) -> str:
                 # 将DataFrame转换为Backtrader可用的数据对象
                 data = bt.feeds.PandasData(
                     dataname=df,
-                    datetime=None,
-                    open=0,
-                    high=1,
-                    low=2,
-                    close=3,
-                    volume=4,
+                    datetime=None,  # 因为已经设置了索引
+                    open='open',
+                    high='high',
+                    low='low',
+                    close='close',
+                    volume='volume',
+                    openinterest=-1
                 )
                 datas.append(data)
                 print(f"成功加载 {timeframe} 数据: {filepath}，共 {len(df)} 行")
@@ -180,7 +212,7 @@ def test_optimized_strategy():
         res2020_2, res2021_2, ..., res2025_2
     """
     # 遍历2020-2025年，逐年回测
-    for year in range(2025, 2026):
+    for year in range(2020, 2026):
         # 运行该年份的回测
         output = run_year(year)
         # 将回测结果保存到文件（UTF-16编码）

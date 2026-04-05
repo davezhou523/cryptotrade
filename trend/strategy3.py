@@ -58,55 +58,56 @@ import backtrader as bt
 class Strategy3(bt.Strategy):
     """策略3：4H趋势 + 1H回调 + 15M确认"""
 
+    # 定义参数结构，但设置默认值为None，依赖外部传入
     params = (
         # 日志控制
-        ('printlog', False),                 # 是否打印普通日志（每笔交易等）
-        ('eventlog', True),                  # 是否打印重要事件日志（入场、出场、风控触发等）
+        ('printlog', None),                 # 是否打印普通日志（每笔交易等）
+        ('eventlog', None),                 # 是否打印重要事件日志（入场、出场、风控触发等）
 
         # 周期参数 - 各时间周期的指标参数
-        ('h4_ema_fast', 21),                # 4小时图快速EMA周期
-        ('h4_ema_slow', 55),                # 4小时图慢速EMA周期
-        ('h1_ema_fast', 21),                # 1小时图快速EMA周期
-        ('h1_ema_slow', 55),                # 1小时图慢速EMA周期
-        ('h1_rsi_period', 14),              # 1小时图RSI周期
-        ('m15_ema_period', 21),             # 15分钟图EMA周期（用于出场判断）
-        ('m15_atr_period', 14),             # 15分钟图ATR周期（用于止损和仓位计算）
-        ('m15_rsi_period', 14),             # 15分钟图RSI周期（用于入场信号）
+        ('h4_ema_fast', None),              # 4小时图快速EMA周期
+        ('h4_ema_slow', None),              # 4小时图慢速EMA周期
+        ('h1_ema_fast', None),              # 1小时图快速EMA周期
+        ('h1_ema_slow', None),              # 1小时图慢速EMA周期
+        ('h1_rsi_period', None),            # 1小时图RSI周期
+        ('m15_ema_period', None),           # 15分钟图EMA周期（用于出场判断）
+        ('m15_atr_period', None),           # 15分钟图ATR周期（用于止损和仓位计算）
+        ('m15_rsi_period', None),           # 15分钟图RSI周期（用于入场信号）
 
         # 风控与仓位 - 风险管理和仓位大小计算
-        ('risk_per_trade', 0.016),          # 单笔风险 <=1.5%（可动态调整，最大2%）
-        ('max_position_size', 0.3),        # 最大仓位规模（占总资金比例），小幅提升资金利用率
-        ('deep_pullback_scale', 0.6),       # 深回调轻仓系数，价格接近EMA55时仓位打6折
-        ('pullback_deep_band', 0.003),      # 贴近EMA55判定带（0.3%），价格与EMA55距离小于此值视为深回调
-        ('stop_loss_atr_multiplier', 2.0),  # 止损距离=2×ATR
-        ('min_holding_bars', 4),            # 最小持仓K线数，避免刚入场就被EMA噪音洗出
-        ('ema_exit_confirm_bars', 2),       # EMA破位连续确认K线数，需连续2根K线确认破位
-        ('ema_exit_buffer_atr', 0.2),       # EMA破位缓冲带（ATR倍数），提供一定容错空间
+        ('risk_per_trade', None),           # 单笔风险
+        ('max_position_size', None),        # 最大仓位规模（占总资金比例）
+        ('deep_pullback_scale', None),      # 深回调轻仓系数
+        ('pullback_deep_band', None),       # 贴近EMA55判定带
+        ('stop_loss_atr_multiplier', None), # 止损距离=ATR倍数
+        ('min_holding_bars', None),         # 最小持仓K线数
+        ('ema_exit_confirm_bars', None),    # EMA破位连续确认K线数
+        ('ema_exit_buffer_atr', None),      # EMA破位缓冲带（ATR倍数）
 
         # 杠杆约束 - 保证金交易参数
-        ('leverage', 5.0),                  # 杠杆倍数，5倍杠杆
-        ('max_leverage_ratio', 0.9),       # 最大杠杆使用率，不超过保证金的85%
+        ('leverage', None),                 # 杠杆倍数
+        ('max_leverage_ratio', None),       # 最大杠杆使用率
 
         # 风险限制 - 全局风险控制
-        ('max_positions', 1),               # 最大同时持仓数，只允许单笔交易
-        ('max_consecutive_losses', 3),      # 最大连续亏损次数，达到后暂停交易
-        ('max_daily_loss_pct', 0.05),       # 最大日亏损比例（5%），达到后当日停止交易
-        ('max_drawdown_pct', 0.10),         # 最大回撤比例（10%），达到后仓位规模减半
-        ('drawdown_position_scale', 0.5),   # 回撤仓位缩放系数，回撤达到阈值时仓位打5折
+        ('max_positions', None),            # 最大同时持仓数
+        ('max_consecutive_losses', None),   # 最大连续亏损次数
+        ('max_daily_loss_pct', None),       # 最大日亏损比例
+        ('max_drawdown_pct', None),         # 最大回撤比例
+        ('drawdown_position_scale', None),  # 回撤仓位缩放系数
 
         # 过滤 - 信号过滤条件
-        ('require_both_entry_signals', False), # 是否需要同时满足结构突破和RSI信号
-        ('h1_rsi_long_low', 42),            # 1小时图多头RSI下限，RSI>42才考虑做多
-        ('h1_rsi_long_high', 60),           # 1小时图多头RSI上限，RSI<60才考虑做多
-        ('h1_rsi_short_low', 40),           # 1小时图空头RSI下限，RSI>40才考虑做空
-        ('h1_rsi_short_high', 58),          # 1小时图空头RSI上限，RSI<58才考虑做空
-        ('m15_breakout_lookback', 6),       # 15分钟图突破结构回顾期（K线数）
-        ('m15_rsi_bias_long', 52),          # 15分钟图多头RSI偏置，RSI>=52视为偏多
-        ('m15_rsi_bias_short', 48),         # 15分钟图空头RSI偏置，RSI<=48视为偏空
+        ('require_both_entry_signals', None), # 是否需要同时满足结构突破和RSI信号
+        ('h1_rsi_long_low', None),         # 1小时图多头RSI下限
+        ('h1_rsi_long_high', None),        # 1小时图多头RSI上限
+        ('h1_rsi_short_low', None),        # 1小时图空头RSI下限
+        ('h1_rsi_short_high', None),       # 1小时图空头RSI上限
+        ('m15_breakout_lookback', None),   # 15分钟图突破结构回顾期（K线数）
+        ('m15_rsi_bias_long', None),       # 15分钟图多头RSI偏置
+        ('m15_rsi_bias_short', None),      # 15分钟图空头RSI偏置
 
         # 兼容测试脚本参数
-        ('volatility_scaling', True),       # 波动率缩放，根据市场波动调整仓位
-        ('dynamic_risk_adjustment', True),  # 动态风险调整，根据回撤调整仓位规模
+        ('volatility_scaling', None),      # 波动率缩放，根据市场波动调整仓位
+        ('dynamic_risk_adjustment', None), # 动态风险调整，根据回撤调整仓位规模
     )
 
     def __init__(self):
@@ -114,12 +115,32 @@ class Strategy3(bt.Strategy):
         策略初始化方法
         
         功能:
-            1. 设置多时间周期数据引用（4H/1H/15M）
-            2. 初始化各周期技术指标（EMA、ATR、RSI）
-            3. 定义订单和仓位状态变量
-            4. 初始化交易统计和风险管理变量
-            5. 记录初始化完成日志
+            1. 验证所有必要参数都已传入
+            2. 设置多时间周期数据引用（4H/1H/15M）
+            3. 初始化各周期技术指标（EMA、ATR、RSI）
+            4. 定义订单和仓位状态变量
+            5. 初始化交易统计和风险管理变量
         """
+        # 验证所有必要参数都已传入
+        required_params = [
+            'printlog', 'eventlog',
+            'h4_ema_fast', 'h4_ema_slow', 'h1_ema_fast', 'h1_ema_slow',
+            'h1_rsi_period', 'm15_ema_period', 'm15_atr_period', 'm15_rsi_period',
+            'risk_per_trade', 'max_position_size', 'deep_pullback_scale', 
+            'pullback_deep_band', 'stop_loss_atr_multiplier', 'min_holding_bars',
+            'ema_exit_confirm_bars', 'ema_exit_buffer_atr', 'leverage', 
+            'max_leverage_ratio', 'max_positions', 'max_consecutive_losses',
+            'max_daily_loss_pct', 'max_drawdown_pct', 'drawdown_position_scale',
+            'require_both_entry_signals', 'h1_rsi_long_low', 'h1_rsi_long_high',
+            'h1_rsi_short_low', 'h1_rsi_short_high', 'm15_breakout_lookback',
+            'm15_rsi_bias_long', 'm15_rsi_bias_short', 'volatility_scaling',
+            'dynamic_risk_adjustment'
+        ]
+        
+        for param in required_params:
+            if getattr(self.params, param) is None:
+                raise ValueError(f"策略参数 '{param}' 未传入，必须提供所有必要参数")
+        
         # 多时间周期数据引用
         self.data_4h = self.datas[0]   # 4小时图，用于判断趋势方向
         self.data_1h = self.datas[1]   # 1小时图，用于判断回调位置
@@ -153,7 +174,7 @@ class Strategy3(bt.Strategy):
         self.m15_last_low = None            # 15分钟图最近低点（用于突破判断）
         self.h1_last_high = None            # 1小时图最近高点（用于回调判断）
         self.h1_last_low = None             # 1小时图最近低点（用于回调判断）
-        self.pullback_scale = 1.0           # 回调仓位缩放系数（深回调时减小仓位）
+        self.pullback_scale = 1.0  # 回调仓位缩放系数，默认为1.0(正常仓位)           # 回调仓位缩放系数（深回调时减小仓位）
 
         # 交易统计和风险管理变量
         self.trade_count = 0                # 总交易次数
@@ -439,7 +460,7 @@ class Strategy3(bt.Strategy):
                     self.take_profit = None
                     self.stop_moved_to_cost = False
                     self.partial_take_profit_done = False
-                    self.pullback_scale = 1.0
+                    self.pullback_scale = 1.0  # 回调仓位缩放系数，默认为1.0(正常仓位)
                     self.bars_since_entry = 0
                     self.ema_break_count = 0
 
@@ -554,12 +575,12 @@ class Strategy3(bt.Strategy):
         e21 = self.h1_ema21[0]
         e55 = self.h1_ema55[0]
         rsi = self.h1_rsi[0]
-        self.pullback_scale = 1.0
+        self.pullback_scale = 1.0  # 回调仓位缩放系数，默认为1.0(正常仓位)
 
-        zone_low = min(e21, e55)
-        zone_high = max(e21, e55)
+        zone_low = min(e21, e55)    # 回调区域的低边界（EMA21和EMA55中的较小值）
+        zone_high = max(e21, e55)   # 回调区域的高边界（EMA21和EMA55中的较大值）
 
-        if trend_direction == 'bullish':
+        if trend_direction == 'bullish':  # 多头趋势下的回调判断逻辑
             # 不追涨：强趋势区等待
             if price > zone_high:
                 return False
@@ -572,16 +593,19 @@ class Strategy3(bt.Strategy):
             # 回调 vs 反转
             if self.h1_last_low is not None and price < self.h1_last_low:
                 return False
-            if self.h1_ema21[0] <= self.h1_ema21[-1]:
+            # 判断EMA21是否走平或下拐（反转信号）
+            if self.h1_ema21[0] <= self.h1_ema21[-1]:  # 当前EMA21 ≤ 前一根EMA21，表示趋势可能反转
                 return False
+            # RSI过滤：检查RSI是否处于合理多头区间(42-60)，避免在极端超买或弱势区域入场
             if not (self.params.h1_rsi_long_low <= rsi <= self.params.h1_rsi_long_high):
                 return False
 
-            dist_55 = abs(price - e55) / e55 if e55 > 0 else 0
-            if dist_55 <= self.params.pullback_deep_band:
-                self.pullback_scale = self.params.deep_pullback_scale
+            # 深回调检测：计算与EMA55的距离，价格接近EMA55时视为深回调，仓位减半
+            dist_55 = abs(price - e55) / e55 if e55 > 0 else 0  # 计算与EMA55的相对距离
+            if dist_55 <= self.params.pullback_deep_band:  # 距离小于0.3%(默认)时触发深回调
+                self.pullback_scale = self.params.deep_pullback_scale  # 仓位缩放为0.6(60%仓位)
             return True
-
+        #空头趋势
         if trend_direction == 'bearish':
             # 不追空：强趋势区等待
             if price < zone_low:
@@ -597,12 +621,14 @@ class Strategy3(bt.Strategy):
                 return False
             if self.h1_ema21[0] >= self.h1_ema21[-1]:
                 return False
+            # RSI过滤：检查RSI是否处于合理空头区间(40-58)，避免在极端超卖或反弹区域入场做空
             if not (self.params.h1_rsi_short_low <= rsi <= self.params.h1_rsi_short_high):
                 return False
 
-            dist_55 = abs(price - e55) / e55 if e55 > 0 else 0
-            if dist_55 <= self.params.pullback_deep_band:
-                self.pullback_scale = self.params.deep_pullback_scale
+            # 深回调检测：计算与EMA55的距离，价格接近EMA55时视为深回调，仓位减半
+            dist_55 = abs(price - e55) / e55 if e55 > 0 else 0  # 计算与EMA55的相对距离
+            if dist_55 <= self.params.pullback_deep_band:  # 距离小于0.3%(默认)时触发深回调
+                self.pullback_scale = self.params.deep_pullback_scale  # 仓位缩放为0.6(60%仓位)
             return True
 
         return False
@@ -624,8 +650,9 @@ class Strategy3(bt.Strategy):
                - 若为True: 需要结构突破+RSI信号
                - 若为False: 结构突破或RSI信号任一即可
         """
-        lookback = self.params.m15_breakout_lookback
-        if len(self.data_15m) < lookback + 2:
+        # 检查数据是否足够进行突破结构分析，避免在数据不足时错误判断
+        lookback = self.params.m15_breakout_lookback  # 突破结构回顾期，默认6根K线
+        if len(self.data_15m) < lookback + 2:  # 需要至少lookback+2根K线数据才能进行分析
             return False
 
         highs = list(self.data_15m.high.get(size=lookback + 1))
@@ -633,13 +660,20 @@ class Strategy3(bt.Strategy):
         recent_high = max(highs[:-1])
         recent_low = min(lows[:-1])
 
-        if trend_direction == 'bullish':
+        # 根据趋势方向设置不同的入场信号条件
+        if trend_direction == 'bullish':  # 多头趋势下的入场条件
+            # RSI上穿50：当前RSI>50且前一根RSI<=50，表示动量转强
             rsi_trigger = self.m15_rsi[0] > 50 and self.m15_rsi[-1] <= 50
+            # RSI偏置检查：RSI>=52视为偏多，避免在弱势区域入场
             rsi_bias_ok = self.m15_rsi[0] >= self.params.m15_rsi_bias_long
+            # 结构突破：收盘价突破近期高点，确认上涨动能
             structure_trigger = self.data_15m.close[0] > recent_high
-        else:
+        else:  # 空头趋势下的入场条件
+            # RSI下穿50：当前RSI<50且前一根RSI>=50，表示动量转弱
             rsi_trigger = self.m15_rsi[0] < 50 and self.m15_rsi[-1] >= 50
+            # RSI偏置检查：RSI<=48视为偏空，避免在强势区域入场
             rsi_bias_ok = self.m15_rsi[0] <= self.params.m15_rsi_bias_short
+            # 结构突破：收盘价跌破近期低点，确认下跌动能
             structure_trigger = self.data_15m.close[0] < recent_low
 
         if self.params.require_both_entry_signals:
@@ -711,26 +745,31 @@ class Strategy3(bt.Strategy):
                - 回调缩放（pullback_scale）
         """
         price = self.data_15m.close[0]
+        # 获取账户总权益
         equity = self.broker.getvalue()
         if price <= 0 or equity <= 0:
             return 0
 
-        stop_distance = self.m15_atr[0] * self.params.stop_loss_atr_multiplier
-        if stop_distance <= 0:
+        # 计算止损距离：基于ATR的波动率调整，避免止损过小或过大
+        stop_distance = self.m15_atr[0] * self.params.stop_loss_atr_multiplier  # 止损=ATR×倍数(默认1.5)
+        if stop_distance <= 0:  # 如果ATR为0或负值，无法计算仓位
             return 0
 
-        risk_pct = min(self.params.risk_per_trade, 0.03)
-        risk_amount = equity * risk_pct
-        risk_size = risk_amount / stop_distance
+        # 基于风险的仓位计算：确保单笔亏损不超过预定风险比例
+        risk_pct = min(self.params.risk_per_trade, 0.03)  # 单笔风险比例，最大不超过3%
+        risk_amount = equity * risk_pct  # 风险金额=权益×风险比例
+        risk_size = risk_amount / stop_distance  # 风险仓位=风险金额÷止损距离
 
-        cash_cap = (equity * self.params.max_position_size) / price
-        lev_cap = (equity * self.params.leverage * self.params.max_leverage_ratio) / price
+        # 资金限制：确保仓位不超过各种资金约束
+        cash_cap = (equity * self.params.max_position_size) / price  # 现金限制：权益×最大仓位比例÷价格
+        lev_cap = (equity * self.params.leverage * self.params.max_leverage_ratio) / price  # 杠杆限制
 
-        size = min(risk_size, cash_cap, lev_cap)
-        size *= self.drawdown_position_scale
-        size *= self.pullback_scale
+        # 综合仓位计算：取三种限制中的最小值，确保不超限
+        size = min(risk_size, cash_cap, lev_cap)  # 取风险、现金、杠杆限制的最小值
+        size *= self.drawdown_position_scale  # 回撤仓位缩放：根据回撤情况调整仓位
+        size *= self.pullback_scale  # 回调仓位缩放：根据回调深度调整仓位
 
-        return max(0, size)
+        return max(0, size)  # 确保仓位不为负值
 
     def set_stop_loss_take_profit(self, direction, entry_price):
         """
