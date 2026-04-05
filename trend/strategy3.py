@@ -169,6 +169,7 @@ class Strategy3(bt.Strategy):
         self.bars_since_entry = 0           # 自入场以来的K线数
         self.ema_break_count = 0            # EMA破位连续计数（用于出场确认）
         self.pending_entry_context = None
+        self.signal_price = None            # 信号触发时的15分钟收盘价
 
         self.log('=== Strategy3 初始化完成 ===', force=True)
 
@@ -304,22 +305,88 @@ class Strategy3(bt.Strategy):
             force=True
         )
         self.log(
-            f'{direction_text}仓位计算: '
-            f'权益{context["equity"]:.2f} 风险比例{context["risk_pct"]*100:.2f}% 风险金额{context["risk_amount"]:.2f} '
-            f'ATR止损距离{context["stop_distance"]:.2f} 风险仓位{context["risk_size"]:.4f} '
-            f'现金上限{context["cash_cap"]:.4f} 杠杆上限{context["lev_cap"]:.4f} '
-            f'基础仓位{context["base_size"]:.4f} 回撤缩放{context["drawdown_scale"]:.2f} '
-            f'回调缩放{context["pullback_scale"]:.2f} 最终仓位{context["final_size"]:.4f}',
+            f'{direction_text}仓位计算公式:',
+            force=True
+        )
+        self.log(
+            f'  权益 = {context["equity"]:.2f}',
+            force=True
+        )
+        self.log(
+            f'  风险比例 = min(params.risk_per_trade, 0.02) = {context["risk_pct"]*100:.2f}%',
+            force=True
+        )
+        self.log(
+            f'  风险金额 = 权益 × 风险比例 = {context["equity"]:.2f} × {context["risk_pct"]:.4f} = {context["risk_amount"]:.2f}',
+            force=True
+        )
+        self.log(
+            f'  ATR止损距离 = m15_atr × params.stop_loss_atr_multiplier = {context["stop_distance"]/self.params.stop_loss_atr_multiplier:.2f} × {self.params.stop_loss_atr_multiplier} = {context["stop_distance"]:.2f}',
+            force=True
+        )
+        self.log(
+            f'  风险仓位 = 风险金额 ÷ ATR止损距离 = {context["risk_amount"]:.2f} ÷ {context["stop_distance"]:.2f} = {context["risk_size"]:.4f}',
+            force=True
+        )
+        self.log(
+            f'  现金上限 = (权益 × params.max_position_size) ÷ 信号价 = ({context["equity"]:.2f} × {self.params.max_position_size}) ÷ {context["signal_price"]:.2f} = {context["cash_cap"]:.4f}',
+            force=True
+        )
+        self.log(
+            f'  杠杆上限 = (权益 × params.leverage × params.max_leverage_ratio) ÷ 信号价 = ({context["equity"]:.2f} × {self.params.leverage} × {self.params.max_leverage_ratio}) ÷ {context["signal_price"]:.2f} = {context["lev_cap"]:.4f}',
+            force=True
+        )
+        self.log(
+            f'  基础仓位 = min(风险仓位, 现金上限, 杠杆上限) = min({context["risk_size"]:.4f}, {context["cash_cap"]:.4f}, {context["lev_cap"]:.4f}) = {context["base_size"]:.4f}',
+            force=True
+        )
+        self.log(
+            f'  回撤缩放 = {context["drawdown_scale"]:.2f}',
+            force=True
+        )
+        self.log(
+            f'  回调缩放 = {context["pullback_scale"]:.2f}',
+            force=True
+        )
+        self.log(
+            f'  最终仓位 = 基础仓位 × 回撤缩放 × 回调缩放 = {context["base_size"]:.4f} × {context["drawdown_scale"]:.2f} × {context["pullback_scale"]:.2f} = {context["final_size"]:.4f}',
             force=True
         )
         operator = '-' if context['trend_direction'] == 'bullish' else '+'
         self.log(
-            f'{direction_text}目标计算: '
-            f'信号价{context["signal_price"]:.2f} '
-            f'止损={context["signal_price"]:.2f}{operator}{context["stop_distance"]:.2f}={context["stop_loss"]:.2f} '
-            f'止盈1={context["take_profit_1"]:.2f} 止盈2={context["take_profit_2"]:.2f}',
+            f'{direction_text}目标计算公式:',
             force=True
         )
+        self.log(
+            f'  信号价 = 15分钟收盘价 = {context["signal_price"]:.2f}',
+            force=True
+        )
+        if context['trend_direction'] == 'bullish':
+            self.log(
+                f'  止损 = 信号价 - ATR止损距离 = {context["signal_price"]:.2f} - {context["stop_distance"]:.2f} = {context["stop_loss"]:.2f}',
+                force=True
+            )
+            self.log(
+                f'  止盈1 = 信号价 + ATR止损距离 = {context["signal_price"]:.2f} + {context["stop_distance"]:.2f} = {context["take_profit_1"]:.2f}',
+                force=True
+            )
+            self.log(
+                f'  止盈2 = 信号价 + 2 × ATR止损距离 = {context["signal_price"]:.2f} + 2 × {context["stop_distance"]:.2f} = {context["take_profit_2"]:.2f}',
+                force=True
+            )
+        else:
+            self.log(
+                f'  止损 = 信号价 + ATR止损距离 = {context["signal_price"]:.2f} + {context["stop_distance"]:.2f} = {context["stop_loss"]:.2f}',
+                force=True
+            )
+            self.log(
+                f'  止盈1 = 信号价 - ATR止损距离 = {context["signal_price"]:.2f} - {context["stop_distance"]:.2f} = {context["take_profit_1"]:.2f}',
+                force=True
+            )
+            self.log(
+                f'  止盈2 = 信号价 - 2 × ATR止损距离 = {context["signal_price"]:.2f} - 2 × {context["stop_distance"]:.2f} = {context["take_profit_2"]:.2f}',
+                force=True
+            )
 
     def notify_order(self, order):
         """
@@ -348,11 +415,17 @@ class Strategy3(bt.Strategy):
                 self.partial_take_profit_done = False
                 self.bars_since_entry = 0
                 self.ema_break_count = 0
+                if self.signal_price is not None:
+                    diff = order.executed.price - self.signal_price
+                    self.log(
+                        f'价格差异: 信号价{self.signal_price:.2f} 成交价{order.executed.price:.2f} 差异{diff:.2f}'
+                    )
                 self.log(
                     f'{"做多" if self.entry_direction == "long" else "做空"}入场: '
                     f'价格{order.executed.price:.2f} 数量{abs(order.executed.size):.4f} '
                     f'止损{self.stop_loss:.2f} 止盈{self.take_profit[1]:.2f}'
                 )
+                self.signal_price = None
             else:
                 if abs(pos_size) > 1e-8:
                     self.log(f'部分平仓: 价格{order.executed.price:.2f} 数量{abs(order.executed.size):.4f}')
@@ -815,12 +888,14 @@ class Strategy3(bt.Strategy):
             return
 
         if trend_direction == 'bullish':
+            self.signal_price = self.data_15m.close[0]
             self.order = self.buy(data=self.data_15m, size=size)
             self.set_stop_loss_take_profit('long', self.data_15m.close[0])
             context = self.build_entry_context(trend_direction, size)
             self.log_entry_context(context)
             self.log('多头入场信号确认', force=True)
         else:
+            self.signal_price = self.data_15m.close[0]
             self.order = self.sell(data=self.data_15m, size=size)
             self.set_stop_loss_take_profit('short', self.data_15m.close[0])
             context = self.build_entry_context(trend_direction, size)
