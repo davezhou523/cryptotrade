@@ -18,18 +18,23 @@ ROOT = Path(__file__).resolve().parent
 
 # 策略参数配置
 PARAMS = dict(
-    risk_per_trade=0.02,           # 单笔交易风险，占总资金的1.6%
+    risk_per_trade=0.03,            # 单笔交易风险，占总资金的3.0%（原2.5%）
     leverage=5.0,                   # 杠杆倍数，5倍杠杆
-    max_leverage_ratio=0.90,        # 最大杠杆使用率，不超过保证金的90%
-    max_position_size=0.30,         # 最大仓位规模，不超过总资金的30%
-    min_holding_bars=4,             # 最小持仓K线数，避免刚入场就被EMA噪音洗出
+    max_leverage_ratio=0.95,        # 最大杠杆使用率，不超过保证金的95%（原90%）
+    max_position_size=0.45,         # 最大仓位规模，不超过总资金的45%（原40%）
+    min_holding_bars=5,             # 最小持仓K线数，避免刚入场就被EMA噪音洗出（原6）
     ema_exit_confirm_bars=2,        # EMA破位连续确认K线数，需连续2根K线确认
-    ema_exit_buffer_atr=0.20,       # EMA破位缓冲带，以ATR的20%作为缓冲
+    ema_exit_buffer_atr=0.30,       # EMA破位缓冲带，以ATR的30%作为缓冲（原20%）
     volatility_scaling=True,        # 波动率缩放，根据市场波动调整仓位
     dynamic_risk_adjustment=True,   # 动态风险调整，根据回撤调整仓位规模
     require_both_entry_signals=False, # 是否需要同时满足结构突破和RSI信号
     printlog=True,                  # 打印普通日志
     eventlog=True,                  # 打印重要事件日志
+    # 新增风险控制参数
+    max_drawdown_pct=0.15,          # 最大回撤比例（15%），达到后仓位规模减半（原10%）
+    max_daily_loss_pct=0.07,        # 最大日亏损比例（7%），达到后当日停止交易（原5%）
+    deep_pullback_scale=0.9,        # 深回调轻仓系数，价格接近EMA55时仓位打9折（原8折）
+    stop_loss_atr_multiplier=1.5,   # 止损距离=1.5×ATR（原1.8）
 )
 
 
@@ -87,11 +92,11 @@ def run_year(year: int) -> str:
                 data = bt.feeds.PandasData(
                     dataname=df,
                     datetime=None,
-                    open="open",
-                    high="high",
-                    low="low",
-                    close="close",
-                    volume="volume",
+                    open=0,
+                    high=1,
+                    low=2,
+                    close=3,
+                    volume=4,
                 )
                 datas.append(data)
                 print(f"成功加载 {timeframe} 数据: {filepath}，共 {len(df)} 行")
@@ -179,7 +184,7 @@ def test_optimized_strategy():
         # 运行该年份的回测
         output = run_year(year)
         # 将回测结果保存到文件（UTF-16编码）
-        (ROOT / f"res{year}_2").write_text(output, encoding="utf-16")
+        (ROOT / f"res{year}_3").write_text(output, encoding="utf-16")
         # 打印进度
         print(f"done {year}")
 

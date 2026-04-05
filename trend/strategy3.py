@@ -213,7 +213,7 @@ class Strategy3(bt.Strategy):
         signal_price = self.data_15m.close[0]
         stop_distance = self.m15_atr[0] * self.params.stop_loss_atr_multiplier
         equity = self.broker.getvalue()
-        risk_pct = min(self.params.risk_per_trade, 0.02)
+        risk_pct = min(self.params.risk_per_trade, 0.03)
         risk_amount = equity * risk_pct
         risk_size = risk_amount / stop_distance if stop_distance > 0 else 0
         cash_cap = (equity * self.params.max_position_size) / signal_price if signal_price > 0 else 0
@@ -313,7 +313,7 @@ class Strategy3(bt.Strategy):
             force=True
         )
         self.log(
-            f'  风险比例 = min(params.risk_per_trade, 0.02) = {context["risk_pct"]*100:.2f}%',
+            f'  风险比例 = min(params.risk_per_trade, 0.03) = {context["risk_pct"]*100:.2f}%',
             force=True
         )
         self.log(
@@ -719,7 +719,7 @@ class Strategy3(bt.Strategy):
         if stop_distance <= 0:
             return 0
 
-        risk_pct = min(self.params.risk_per_trade, 0.02)
+        risk_pct = min(self.params.risk_per_trade, 0.03)
         risk_amount = equity * risk_pct
         risk_size = risk_amount / stop_distance
 
@@ -752,10 +752,10 @@ class Strategy3(bt.Strategy):
         r = self.m15_atr[0] * self.params.stop_loss_atr_multiplier
         if direction == 'long':
             self.stop_loss = entry_price - r
-            self.take_profit = [entry_price + r, entry_price + 2 * r]
+            self.take_profit = [entry_price + r, entry_price + 3 * r]
         else:
             self.stop_loss = entry_price + r
-            self.take_profit = [entry_price - r, entry_price - 2 * r]
+            self.take_profit = [entry_price - r, entry_price - 3 * r]
 
     def check_exit_conditions(self):
         """
