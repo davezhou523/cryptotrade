@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent
 
 # 策略参数配置
 PARAMS = dict(
-    risk_per_trade=0.016,           # 单笔交易风险，占总资金的1.6%
+    risk_per_trade=0.02,           # 单笔交易风险，占总资金的1.6%
     leverage=5.0,                   # 杠杆倍数，5倍杠杆
     max_leverage_ratio=0.90,        # 最大杠杆使用率，不超过保证金的90%
     max_position_size=0.30,         # 最大仓位规模，不超过总资金的30%

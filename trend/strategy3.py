@@ -475,7 +475,12 @@ class Strategy3(bt.Strategy):
             self.daily_consecutive_losses += 1
 
         win_rate = self.win_count / self.trade_count * 100 if self.trade_count else 0
-        self.log(f'交易关闭: 净盈亏{pnl:.2f} 累计{self.trade_count} 胜率{win_rate:.2f}%', force=True)
+        # 计算点数：净利润除以仓位大小（每单位价格变化）
+        if hasattr(trade, 'size') and trade.size != 0:
+            price_diff = pnl / abs(trade.size)
+        else:
+            price_diff = 0
+        self.log(f'交易关闭: 净盈亏{pnl:.2f} 点数{price_diff:.2f} 累计{self.trade_count} 胜率{win_rate:.2f}%', force=True)
 
     def update_levels(self):
         """
@@ -757,11 +762,13 @@ class Strategy3(bt.Strategy):
         检查出场条件（止损、止盈、EMA破位）
         
         返回:
-            str or None: 出场原因，可能的值：
+            tuple or None: (出场原因, 破位数值) 或 None
+                出场原因可能的值：
                 - 'stop_loss': 止损触发
                 - 'take_profit_partial': 部分止盈触发（第二止盈位）
                 - 'ema_break_exit': EMA破位出场
-                - None: 无出场信号
+                破位数值：仅当EMA破位出场时有值，表示价格破位的点数
+                None: 无出场信号
         
         功能:
             1. 止损检查：价格触及止损位
@@ -780,7 +787,7 @@ class Strategy3(bt.Strategy):
 
         if self.entry_direction == 'long':
             if price <= self.stop_loss:
-                return 'stop_loss'
+                return ('stop_loss', None)
 
             if price >= self.take_profit[0] and not self.stop_moved_to_cost:
                 self.stop_loss = self.entry_price
@@ -789,18 +796,21 @@ class Strategy3(bt.Strategy):
 
             if price >= self.take_profit[1] and not self.partial_take_profit_done:
                 self.partial_take_profit_done = True
-                return 'take_profit_partial'
+                return ('take_profit_partial', None)
 
             if self.bars_since_entry >= self.params.min_holding_bars and price < (ema - ema_buffer):
                 self.ema_break_count += 1
                 if self.ema_break_count >= self.params.ema_exit_confirm_bars:
-                    return 'ema_break_exit'
+                    # 计算破位点数：EMA缓冲带下界 - 当前价格
+                    break_amount = (ema - ema_buffer) - price
+                    self.log(f'多头EMA破位计算: EMA({ema:.2f}) - 缓冲带({ema_buffer:.2f}) = {ema - ema_buffer:.2f} - 价格({price:.2f}) = 破位{break_amount:.2f}点', force=True)
+                    return ('ema_break_exit', break_amount)
             else:
                 self.ema_break_count = 0
 
         else:
             if price >= self.stop_loss:
-                return 'stop_loss'
+                return ('stop_loss', None)
 
             if price <= self.take_profit[0] and not self.stop_moved_to_cost:
                 self.stop_loss = self.entry_price
@@ -809,12 +819,15 @@ class Strategy3(bt.Strategy):
 
             if price <= self.take_profit[1] and not self.partial_take_profit_done:
                 self.partial_take_profit_done = True
-                return 'take_profit_partial'
+                return ('take_profit_partial', None)
 
             if self.bars_since_entry >= self.params.min_holding_bars and price > (ema + ema_buffer):
                 self.ema_break_count += 1
                 if self.ema_break_count >= self.params.ema_exit_confirm_bars:
-                    return 'ema_break_exit'
+                    # 计算破位点数：当前价格 - EMA缓冲带上界
+                    break_amount = price - (ema + ema_buffer)
+                    self.log(f'空头EMA破位计算: 价格({price:.2f}) - (EMA({ema:.2f}) + 缓冲带({ema_buffer:.2f})) = {price:.2f} - {ema + ema_buffer:.2f} = 破位{break_amount:.2f}点', force=True)
+                    return ('ema_break_exit', break_amount)
             else:
                 self.ema_break_count = 0
 
@@ -853,10 +866,31 @@ class Strategy3(bt.Strategy):
         if self.current_position:
             self.bars_since_entry += 1
 
-        exit_reason = self.check_exit_conditions()
-        if exit_reason:
-            self.log(f'触发退出: {exit_reason}')
-            if exit_reason == 'take_profit_partial':
+        exit_result = self.check_exit_conditions()
+        if exit_result:
+            # 处理返回结果：可能是元组 (reason, break_amount) 或字符串（旧格式）
+            if isinstance(exit_result, tuple):
+                reason = exit_result[0]
+                break_amount = exit_result[1]
+            else:
+                # 向后兼容：旧格式返回字符串
+                reason = exit_result
+                break_amount = None
+            
+            reason_map = {
+                'stop_loss': '止损触发',
+                'take_profit_partial': '部分止盈触发',
+                'ema_break_exit': 'EMA破位出场'
+            }
+            reason_text = reason_map.get(reason, reason)
+            
+            # 如果有破位数值，添加到日志
+            if break_amount is not None:
+                self.log(f'触发退出: {reason_text} 破位{break_amount:.2f}点')
+            else:
+                self.log(f'触发退出: {reason_text}')
+            
+            if reason == 'take_profit_partial':
                 pos = self.getposition(self.data_15m).size
                 half = abs(pos) / 2
                 if half > 0:
