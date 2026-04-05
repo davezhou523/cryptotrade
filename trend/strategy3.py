@@ -74,8 +74,8 @@ class Strategy3(bt.Strategy):
         ('m15_rsi_period', 14),             # 15分钟图RSI周期（用于入场信号）
 
         # 风控与仓位 - 风险管理和仓位大小计算
-        ('risk_per_trade', 0.015),          # 单笔风险 <=1.5%（可动态调整，最大2%）
-        ('max_position_size', 0.28),        # 最大仓位规模（占总资金比例），小幅提升资金利用率
+        ('risk_per_trade', 0.016),          # 单笔风险 <=1.5%（可动态调整，最大2%）
+        ('max_position_size', 0.3),        # 最大仓位规模（占总资金比例），小幅提升资金利用率
         ('deep_pullback_scale', 0.6),       # 深回调轻仓系数，价格接近EMA55时仓位打6折
         ('pullback_deep_band', 0.003),      # 贴近EMA55判定带（0.3%），价格与EMA55距离小于此值视为深回调
         ('stop_loss_atr_multiplier', 2.0),  # 止损距离=2×ATR
@@ -85,7 +85,7 @@ class Strategy3(bt.Strategy):
 
         # 杠杆约束 - 保证金交易参数
         ('leverage', 5.0),                  # 杠杆倍数，5倍杠杆
-        ('max_leverage_ratio', 0.85),       # 最大杠杆使用率，不超过保证金的85%
+        ('max_leverage_ratio', 0.9),       # 最大杠杆使用率，不超过保证金的85%
 
         # 风险限制 - 全局风险控制
         ('max_positions', 1),               # 最大同时持仓数，只允许单笔交易
@@ -95,7 +95,7 @@ class Strategy3(bt.Strategy):
         ('drawdown_position_scale', 0.5),   # 回撤仓位缩放系数，回撤达到阈值时仓位打5折
 
         # 过滤 - 信号过滤条件
-        ('require_both_entry_signals', True), # 是否需要同时满足结构突破和RSI信号
+        ('require_both_entry_signals', False), # 是否需要同时满足结构突破和RSI信号
         ('h1_rsi_long_low', 42),            # 1小时图多头RSI下限，RSI>42才考虑做多
         ('h1_rsi_long_high', 60),           # 1小时图多头RSI上限，RSI<60才考虑做多
         ('h1_rsi_short_low', 40),           # 1小时图空头RSI下限，RSI>40才考虑做空
