@@ -99,6 +99,7 @@ class Strategy4(bt.Strategy):
         ('rsi_overbought', 70),
         ('rsi_oversold', 30),
         ('breakout_confirm_bars', 2),
+        ('volume_confirm_bars', 2),
 
         # 仓位管理参数
         ('risk_per_trade', 0.02),
@@ -125,6 +126,7 @@ class Strategy4(bt.Strategy):
 
         # 当前使用的参数组合（默认A）
         self.current_param_set = 'A'
+        self.active_risk_params = self.RISK_PARAM_SETS[self.current_param_set].copy()
         self.last_switch_bar = 0
         self.bar_count = 0
 
@@ -220,14 +222,13 @@ class Strategy4(bt.Strategy):
             self.current_param_set = new_set
             self.last_switch_bar = self.bar_count
             params = self.RISK_PARAM_SETS[new_set]
-
-            self.params.stop_loss_atr_multiplier = params['stop_loss_atr_multiplier']
-            self.params.take_profit_1_atr = params['take_profit_1_atr']
-            self.params.take_profit_2_atr = params['take_profit_2_atr']
-            self.params.trailing_stop_atr = params['trailing_stop_atr']
-            self.params.atr_price_ratio_min = params['atr_price_ratio_min']
+            self.active_risk_params = params.copy()
 
             self.log(f'风控切换: {old_set} -> {new_set} (ADX: {self.h1_adx[0]:.2f}, SL: {params["stop_loss_atr_multiplier"]}x, TP2: {params["take_profit_2_atr"]}x)', force=True)
+
+    def get_risk_param(self, key):
+        """读取当前生效的风控参数（优先使用动态参数集）"""
+        return self.active_risk_params.get(key, getattr(self.params, key))
 
     def log(self, txt, dt=None, force=False):
         if not (self.params.printlog or (force and self.params.eventlog)):
@@ -272,7 +273,7 @@ class Strategy4(bt.Strategy):
         candle_body = abs(close_price - open_price)
         body_ratio = candle_body / candle_range if candle_range > 0 else 0
 
-        volatility_ok = atr_ratio > self.params.atr_price_ratio_min
+        volatility_ok = atr_ratio > self.get_risk_param('atr_price_ratio_min')
         volume_ok = volume_ratio > self.params.volume_ratio_threshold
         candle_quality_ok = body_ratio >= self.params.candle_body_ratio_min
 
@@ -358,8 +359,9 @@ class Strategy4(bt.Strategy):
             return rsi_now > self.params.rsi_oversold
         return False
 
-    def check_breakout_persistence(self, direction):
-        bullish_breakout, bearish_breakout = self.check_breakout()
+    def check_breakout_persistence(self, direction, bullish_breakout=None, bearish_breakout=None):
+        if bullish_breakout is None or bearish_breakout is None:
+            bullish_breakout, bearish_breakout = self.check_breakout()
         current_direction = 'long' if bullish_breakout else ('short' if bearish_breakout else None)
 
         if current_direction == direction:
@@ -388,7 +390,7 @@ class Strategy4(bt.Strategy):
         signal_price = self.data_15m.close[0]
         atr = self.m15_atr[0]
         equity = self.broker.getvalue()
-        stop_distance = atr * self.params.stop_loss_atr_multiplier
+        stop_distance = atr * self.get_risk_param('stop_loss_atr_multiplier')
 
         risk_amount = equity * self.params.risk_per_trade
         risk_size = risk_amount / stop_distance if stop_distance > 0 else 0
@@ -473,9 +475,9 @@ class Strategy4(bt.Strategy):
                     self.ema_break_count = 0
 
                     atr = self.m15_atr[0]
-                    self.stop_loss = self.entry_price - atr * self.params.stop_loss_atr_multiplier
-                    self.take_profit_1 = self.entry_price + atr * self.params.take_profit_1_atr
-                    self.take_profit_2 = self.entry_price + atr * self.params.take_profit_2_atr
+                    self.stop_loss = self.entry_price - atr * self.get_risk_param('stop_loss_atr_multiplier')
+                    self.take_profit_1 = self.entry_price + atr * self.get_risk_param('take_profit_1_atr')
+                    self.take_profit_2 = self.entry_price + atr * self.get_risk_param('take_profit_2_atr')
 
                     self.log(f'止损: {self.stop_loss:.2f} | TP1: {self.take_profit_1:.2f} | TP2: {self.take_profit_2:.2f}', force=True)
             else:
@@ -514,9 +516,9 @@ class Strategy4(bt.Strategy):
                     self.ema_break_count = 0
 
                     atr = self.m15_atr[0]
-                    self.stop_loss = self.entry_price + atr * self.params.stop_loss_atr_multiplier
-                    self.take_profit_1 = self.entry_price - atr * self.params.take_profit_1_atr
-                    self.take_profit_2 = self.entry_price - atr * self.params.take_profit_2_atr
+                    self.stop_loss = self.entry_price + atr * self.get_risk_param('stop_loss_atr_multiplier')
+                    self.take_profit_1 = self.entry_price - atr * self.get_risk_param('take_profit_1_atr')
+                    self.take_profit_2 = self.entry_price - atr * self.get_risk_param('take_profit_2_atr')
 
                     self.log(f'止损: {self.stop_loss:.2f} | TP1: {self.take_profit_1:.2f} | TP2: {self.take_profit_2:.2f}', force=True)
 
@@ -588,7 +590,7 @@ class Strategy4(bt.Strategy):
                 if self.check_trend_resonance('long'):
                     if self.check_trend_duration('bullish'):
                         if self.check_rsi_extreme('long'):
-                            if self.check_breakout_persistence('long'):
+                            if self.check_breakout_persistence('long', bullish_breakout, bearish_breakout):
                                 if self.check_volume_confirmation():
                                     size = self.calculate_position_size('long')
                                     if size > 0:
@@ -599,7 +601,7 @@ class Strategy4(bt.Strategy):
                 if self.check_trend_resonance('short'):
                     if self.check_trend_duration('bearish'):
                         if self.check_rsi_extreme('short'):
-                            if self.check_breakout_persistence('short'):
+                            if self.check_breakout_persistence('short', bullish_breakout, bearish_breakout):
                                 if self.check_volume_confirmation():
                                     size = self.calculate_position_size('short')
                                     if size > 0:
@@ -616,7 +618,7 @@ class Strategy4(bt.Strategy):
                         self.stop_moved_to_cost = True
                         self.log('止损移动到成本价(保本)', force=True)
                 else:
-                    new_stop = self.data_15m.close[0] - self.m15_atr[0] * self.params.trailing_stop_atr
+                    new_stop = self.data_15m.close[0] - self.m15_atr[0] * self.get_risk_param('trailing_stop_atr')
                     if new_stop > self.stop_loss:
                         self.stop_loss = new_stop
 
@@ -651,7 +653,7 @@ class Strategy4(bt.Strategy):
                         self.stop_moved_to_cost = True
                         self.log('止损移动到成本价(保本)', force=True)
                 else:
-                    new_stop = self.data_15m.close[0] + self.m15_atr[0] * self.params.trailing_stop_atr
+                    new_stop = self.data_15m.close[0] + self.m15_atr[0] * self.get_risk_param('trailing_stop_atr')
                     if new_stop < self.stop_loss:
                         self.stop_loss = new_stop
 
