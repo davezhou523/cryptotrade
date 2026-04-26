@@ -1,7 +1,17 @@
 # Strategy3 技术指标文档
+## 框架
+语言:golang 1.25
+框架:go-zero
+## 数据源
+从网站:binance.com 获取实时数据模拟交易3个月
+API密钥
+key:
+mksrBgh3v3l25KqGVdAQjsNO7nwPG4csHdsoVnR1SzxZc9IMdFCGXu8kYxyvFWvU
+secret:
+EuOw8Qn5y7jOyMoq1FgIkWYTHns9CdkIKYJ17Up9JsYs3weR8EdQBRmsiVNbs7PE
 
 ## 概述
-策略3是一个基于多时间周期分析的趋势跟踪策略，采用"4H趋势判断 + 1H回调确认 + 15M入场信号"的交易框架。
+策略是一个基于多时间周期分析的趋势跟踪策略，采用"4H趋势判断 + 1H回调确认 + 15M入场信号"的交易框架。
 
 ## 多时间周期架构
 
