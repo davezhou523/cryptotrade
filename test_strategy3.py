@@ -82,6 +82,33 @@ PARAMS = dict(
     dynamic_risk_adjustment=True,   # 动态风险调整
 )
 
+# ======================== 币种级别参数覆盖 ========================
+# 不同币种的波动特性不同，需要针对性调整参数
+# 键为币种简称，值为需要覆盖的参数字典（仅列出与默认值不同的参数）
+
+SYMBOL_PARAMS_OVERRIDE = {
+    "XRP": dict(
+        risk_per_trade=0.02,               # 单笔风险从3%→2%，降低单笔亏损
+        stop_loss_atr_multiplier=2.0,      # 止损从1.5→2.0 ATR，适应高波动避免频繁扫损
+        ema_exit_buffer_atr=0.4,           # EMA缓冲带从0.30→0.40，给更多波动空间
+        leverage=5.0,                      # 杠杆从7→5倍，降低风险敞口
+    ),
+}
+
+
+def getSymbolParams(coin: str) -> dict:
+    """
+    获取指定币种的策略参数（基础参数 + 币种级覆盖）
+
+    :param coin: 币种简称，如 "XRP"
+    :return: 合并后的策略参数字典
+    """
+    params = dict(PARAMS)
+    if coin in SYMBOL_PARAMS_OVERRIDE:
+        params.update(SYMBOL_PARAMS_OVERRIDE[coin])
+    return params
+
+
 # ==========================================================
 
 
@@ -167,8 +194,8 @@ def runBacktest(coin: str, year: int, printLog: bool = False) -> dict | None:
     # 构建数据文件路径
     dataFilePaths = buildDataFilePaths(coin, year)
 
-    # 构建策略参数（控制日志输出）
-    strategyParams = dict(PARAMS)
+    # 获取币种级别策略参数（含覆盖），并控制日志输出
+    strategyParams = getSymbolParams(coin)
     strategyParams['printlog'] = printLog
     strategyParams['eventlog'] = printLog
 
@@ -478,7 +505,7 @@ def run_year(year: int, coin: str = "ETH") -> str:
         for data in datas:
             cerebro.adddata(data)
 
-        cerebro.addstrategy(Strategy3, **PARAMS)
+        cerebro.addstrategy(Strategy3, **getSymbolParams(coin))
         cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name="trades")
         cerebro.addanalyzer(
             bt.analyzers.SharpeRatio_A,
