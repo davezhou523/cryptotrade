@@ -227,6 +227,13 @@ class Strategy5(bt.Strategy):
             self.h1_last_high = max(h1_highs[:-1])
             self.h1_last_low = min(h1_lows[:-1])
 
+    def get_entry_mode_label(self, mode):
+        mode_map = {
+            'pullback': '标准回调',
+            'crossover': '趋势交叉',
+        }
+        return mode_map.get(mode, '标准回调')
+
     def get_trend_direction(self):
         """判断趋势方向 — 同S3：4H横盘时不交易"""
         if len(self.data_4h) < self.params.h4_ema_slow:
@@ -527,8 +534,7 @@ class Strategy5(bt.Strategy):
                 if self.signal_price is not None:
                     diff = order.executed.price - self.signal_price
                     self.log(f'价格差异: 信号价{self.signal_price:.2f} 成交价{order.executed.price:.2f} 差异{diff:.2f}')
-                mode_map = {'pullback': '回调', 'crossover': '交叉'}
-                mode_text = mode_map.get(self.entry_mode, '回调')
+                mode_text = self.get_entry_mode_label(self.entry_mode)
                 self.log(
                     f'{"做多" if self.entry_direction == "long" else "做空"}入场[{mode_text}]: '
                     f'价格{order.executed.price:.2f} 数量{abs(order.executed.size):.4f} '
@@ -624,8 +630,7 @@ class Strategy5(bt.Strategy):
 
     def log_entry_context(self, context):
         direction_text = '多头' if context['trend_direction'] == 'bullish' else '空头'
-        mode_map = {'pullback': '标准回调', 'crossover': '趋势交叉'}
-        mode_text = mode_map.get(context['entry_mode'], '标准回调')
+        mode_text = self.get_entry_mode_label(context['entry_mode'])
         self.log(
             f'{direction_text}入场理由[{mode_text}]: '
             f'4H价格{context["h4_price"]:.2f}/EMA21 {context["h4_ema21"]:.2f}/EMA55 {context["h4_ema55"]:.2f}/ADX {context["h4_adx"]:.1f}; '

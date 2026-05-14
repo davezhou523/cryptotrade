@@ -4,6 +4,29 @@
 > 
 > 本文档是 Strategy5 v4 策略的**完整独立规范**。任何开发者可仅依据本文档，在任意编程语言和交易平台上实现该策略，无需参考原始代码。
 
+## 项目回测入口
+
+当前项目只保留两个正式回测入口：
+
+- 普通版：`./venv/bin/python test_strategy5.py`
+- 高频版：`./venv/bin/python test_strategy5_highfreq.py`
+
+常见用法：
+
+```bash
+./venv/bin/python test_strategy5.py
+./venv/bin/python test_strategy5.py BTC ETH --log
+./venv/bin/python test_strategy5_highfreq.py
+./venv/bin/python test_strategy5_highfreq.py BTC BNB --log
+```
+
+说明：
+
+- `test_strategy5.py` 对应普通版 `Strategy5`
+- `test_strategy5_highfreq.py` 对应高频版 `Strategy5HighFrequency`
+- 高频版详细说明见 `strategy5_highfreq_technical_documentation.md`
+- 旧的中频实验脚本已退出正式流程，不再作为文档推荐入口
+
 ---
 
 ## 目录
